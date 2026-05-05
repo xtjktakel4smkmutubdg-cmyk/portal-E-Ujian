@@ -12,7 +12,7 @@ export default function Dashboard() {
             const token = localStorage.getItem('token');
             try {
                 // Fetch exams
-                const examsRes = await fetch('http://localhost:3000/api/exams', {
+                const examsRes = await fetch('/api/exams', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (examsRes.ok) {

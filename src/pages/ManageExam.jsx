@@ -29,7 +29,7 @@ export default function ManageExam() {
     const fetchExams = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:3000/api/exams', {
+            const res = await fetch('/api/exams', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Failed to fetch exams');
@@ -65,7 +65,7 @@ export default function ManageExam() {
         e.preventDefault();
         try {
             const token = localStorage.getItem('token');
-            const url = currentExam ? `http://localhost:3000/api/exams/${currentExam.id}` : `http://localhost:3000/api/exams`;
+            const url = currentExam ? `/api/exams/${currentExam.id}` : `/api/exams`;
             const method = currentExam ? 'PUT' : 'POST';
 
             const payload = {
@@ -95,7 +95,7 @@ export default function ManageExam() {
         if (!window.confirm('Are you sure you want to delete this exam?')) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:3000/api/exams/${id}`, {
+            const res = await fetch(`/api/exams/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -122,7 +122,7 @@ export default function ManageExam() {
     const fetchQuestions = async (examId) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:3000/api/exams/${examId}`, {
+            const res = await fetch(`/api/exams/${examId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Failed to fetch questions');
@@ -146,7 +146,7 @@ export default function ManageExam() {
         e.preventDefault();
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:3000/api/exams/${selectedExamId}/questions`, {
+            const res = await fetch(`/api/exams/${selectedExamId}/questions`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -167,7 +167,7 @@ export default function ManageExam() {
         if (!window.confirm('Delete question?')) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:3000/api/exams/questions/${qId}`, {
+            const res = await fetch(`/api/exams/questions/${qId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
