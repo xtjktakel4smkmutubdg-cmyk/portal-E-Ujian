@@ -5,6 +5,7 @@ import authRoutes from './auth.js';
 import usersRoutes from './users.js';
 import examsRoutes from './exams.js';
 import attemptsRoutes from './attempts.js';
+import reportsRoutes from './reports.js';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/exams', examsRoutes);
 app.use('/api/attempts', attemptsRoutes);
+app.use('/api/reports', reportsRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Portal Ujian Online API is running' });

@@ -4,6 +4,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ManageExam from './pages/ManageExam';
+import ReportCard from './pages/ReportCard';
+import ManageReports from './pages/ManageReports';
 import TakeExam from './pages/TakeExam';
 import AdminDashboard from './pages/AdminDashboard';
 import Navbar from './components/Navbar';
@@ -32,6 +34,8 @@ function AppRoutes() {
             <Route path="/register" element={<Register />} />
 
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/raport" element={<ProtectedRoute allowedRoles={['siswa']}><ReportCard /></ProtectedRoute>} />
+            <Route path="/manage-reports" element={<ProtectedRoute allowedRoles={['guru', 'admin']}><ManageReports /></ProtectedRoute>} />
             <Route path="/manage-exam" element={<ProtectedRoute allowedRoles={['guru', 'admin']}><ManageExam /></ProtectedRoute>} />
             <Route path="/take-exam/:id" element={<ProtectedRoute allowedRoles={['siswa']}><TakeExam /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
