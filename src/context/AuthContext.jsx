@@ -11,18 +11,36 @@ export const AuthProvider = ({ children }) => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-        setLoading(false);
+        const verifyToken = async () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    const res = await fetch('http://localhost:3000/api/auth/me', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setUser(data);
+                    } else {
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                    }
+                } catch (error) {
+                    console.error('Failed to verify token', error);
+                }
+            }
+            setLoading(false);
+        };
+        verifyToken();
     }, []);
 
     const login = (userData, token) => {
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('token', token);
-        navigate('/');
+        navigate(userData.role === 'admin' ? '/admin' : '/');
     };
 
     const logout = () => {

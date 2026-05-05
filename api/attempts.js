@@ -4,189 +4,136 @@ import { authenticateToken, requireRole } from './middleware.js';
 
 const router = express.Router();
 
-// Start exam attempt (Siswa)
-router.post('/start', authenticateToken, requireRole(['siswa']), async (req, res) => {
+// Get questions for a student taking an exam
+router.get('/exam/:examId/questions', authenticateToken, async (req, res) => {
     try {
-        const { exam_id } = req.body;
+        const { examId } = req.params;
 
-        // Check if exam exists
-        const { data: exam, error: examError } = await supabase
-            .from('exams')
-            .select('*')
-            .eq('id', exam_id)
-            .single();
-
-        if (examError || !exam) return res.status(404).json({ error: 'Exam not found' });
-
-        // Check for existing active attempt
-        const { data: existingAttempt } = await supabase
-            .from('exam_attempts')
-            .select('*')
-            .eq('exam_id', exam_id)
-            .eq('siswa_id', req.user.id)
-            .eq('status', 'in_progress')
-            .single();
-
-        if (existingAttempt) {
-            return res.json(existingAttempt); // Return existing
-        }
-
-        // Create new attempt
-        const { data: attempt, error: attemptError } = await supabase
-            .from('exam_attempts')
-            .insert([{
-                exam_id,
-                siswa_id: req.user.id,
-                status: 'in_progress'
-            }])
-            .select()
-            .single();
-
-        if (attemptError) throw attemptError;
-        res.status(201).json(attempt);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get questions for active attempt (Siswa) - excludes correct answers
-router.get('/:attemptId/questions', authenticateToken, requireRole(['siswa']), async (req, res) => {
-    try {
-        const { attemptId } = req.params;
-
-        const { data: attempt } = await supabase
-            .from('exam_attempts')
-            .select('exam_id, status, siswa_id')
-            .eq('id', attemptId)
-            .single();
-
-        if (!attempt || attempt.siswa_id !== req.user.id) {
-            return res.status(403).json({ error: 'Unauthorized' });
-        }
-
+        // Don't return correct_answer to students
         const { data: questions, error } = await supabase
             .from('questions')
-            .select('id, question_text, options') // omit correct_option
-            .eq('exam_id', attempt.exam_id);
+            .select('id, exam_id, question_text, option_a, option_b, option_c, option_d, option_e, tipe')
+            .eq('exam_id', examId);
 
         if (error) throw error;
-
-        // Get existing answers
-        const { data: answers } = await supabase
-            .from('attempt_answers')
-            .select('question_id, selected_option')
-            .eq('attempt_id', attemptId);
-
-        res.json({ questions, answers: answers || [] });
+        res.json(questions);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Submit/update answer for a question
-router.post('/:attemptId/answer', authenticateToken, requireRole(['siswa']), async (req, res) => {
+// Submit answers
+router.post('/exam/:examId/submit', authenticateToken, async (req, res) => {
     try {
-        const { attemptId } = req.params;
-        const { question_id, selected_option } = req.body;
+        const { examId } = req.params;
+        const { answers } = req.body; // { [questionId]: 'A', [questionId2]: 'essay answer' }
+        const userId = req.user.id;
 
-        const { data: attempt } = await supabase
-            .from('exam_attempts')
-            .select('status, siswa_id')
-            .eq('id', attemptId)
-            .single();
+        // Fetch questions to score MCQ
+        const { data: questions, error: qError } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('exam_id', examId);
 
-        if (!attempt || attempt.siswa_id !== req.user.id || attempt.status !== 'in_progress') {
-            return res.status(400).json({ error: 'Invalid or completed attempt' });
-        }
+        if (qError) throw qError;
 
-        // Upsert answer
-        const { error } = await supabase
-            .from('attempt_answers')
-            .upsert({
-                attempt_id: attemptId,
-                question_id,
-                selected_option
-            }, { onConflict: 'attempt_id,question_id' });
+        let inserts = [];
 
-        if (error) throw error;
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+        for (let q of questions) {
+            let answer = answers[q.id] || null;
+            let score = 0;
 
-// Finish attempt
-router.post('/:attemptId/finish', authenticateToken, requireRole(['siswa']), async (req, res) => {
-    try {
-        const { attemptId } = req.params;
+            if (q.tipe === 'mcq' && answer === q.correct_answer) {
+                score = 1;
+            }
 
-        const { data: attempt } = await supabase
-            .from('exam_attempts')
-            .select('*, exam:exams(*)')
-            .eq('id', attemptId)
-            .single();
-
-        if (!attempt || attempt.siswa_id !== req.user.id || attempt.status !== 'in_progress') {
-            return res.status(400).json({ error: 'Invalid or completed attempt' });
-        }
-
-        // Calculate score
-        const { data: answers } = await supabase
-            .from('attempt_answers')
-            .select('*, question:questions(correct_option)')
-            .eq('attempt_id', attemptId);
-
-        let correctCount = 0;
-        if (answers) {
-            answers.forEach(ans => {
-                if (ans.selected_option === ans.question.correct_option) {
-                    correctCount++;
-                }
+            inserts.push({
+                user_id: userId,
+                exam_id: examId,
+                question_id: q.id,
+                answer: answer,
+                score: score
             });
         }
 
-        const { data: questions } = await supabase
-            .from('questions')
-            .select('id', { count: 'exact' })
-            .eq('exam_id', attempt.exam_id);
+        // Remove existing answers to allow retakes, or block retakes
+        await supabase
+            .from('answers')
+            .delete()
+            .eq('user_id', userId)
+            .eq('exam_id', examId);
 
-        const totalQuestions = questions ? questions.length : 1;
-        const score = (correctCount / totalQuestions) * 100;
+        const { error: insertError } = await supabase
+            .from('answers')
+            .insert(inserts);
 
-        // Update attempt
-        const { data: finalAttempt, error } = await supabase
-            .from('exam_attempts')
-            .update({
-                status: 'completed',
-                end_time: new Date().toISOString(),
-                score: score
-            })
-            .eq('id', attemptId)
-            .select()
-            .single();
+        if (insertError) throw insertError;
 
-        if (error) throw error;
-        res.json(finalAttempt);
+        res.json({ message: 'Exam submitted successfully' });
+
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Get user attempt history
-router.get('/history', authenticateToken, async (req, res) => {
+// Get user results for a specific exam
+router.get('/exam/:examId/results/me', authenticateToken, async (req, res) => {
     try {
-        let query = supabase.from('exam_attempts').select('*, exam:exams(title)');
+        const { examId } = req.params;
+        const userId = req.user.id;
 
-        if (req.user.role === 'siswa') {
-            query = query.eq('siswa_id', req.user.id);
-        }
-
-        const { data, error } = await query.order('created_at', { ascending: false });
+        const { data, error } = await supabase
+            .from('answers')
+            .select('id, question_id, answer, score, questions(question_text, correct_answer, tipe)')
+            .eq('exam_id', examId)
+            .eq('user_id', userId);
 
         if (error) throw error;
+
+        const totalScore = data.reduce((sum, item) => sum + Number(item.score || 0), 0);
+
+        res.json({
+            answers: data,
+            totalScore
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Admin: Get all results for an exam
+router.get('/exam/:examId/results', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const { examId } = req.params;
+
+        const { data, error } = await supabase
+            .from('answers')
+            .select('id, user_id, answer, score, users(nama, username), questions(id, question_text, tipe, correct_answer)')
+            .eq('exam_id', examId);
+
+        if (error) throw error;
+
         res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// Admin: Grade an essay
+router.post('/grade/:answerId', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const { answerId } = req.params;
+        const { score } = req.body;
+
+        const { error } = await supabase
+            .from('answers')
+            .update({ score })
+            .eq('id', answerId);
+
+        if (error) throw error;
+        res.json({ message: 'Graded successfully' });
+    } catch (err) {
+         res.status(500).json({ error: err.message });
     }
 });
 

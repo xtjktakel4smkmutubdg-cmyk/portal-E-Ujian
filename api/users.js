@@ -1,4 +1,5 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { supabase } from './db.js';
 import { authenticateToken, requireRole } from './middleware.js';
 
@@ -9,7 +10,7 @@ router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('users')
-            .select('id, name, email, role, created_at')
+            .select('id, nama, username, role, created_at')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -19,21 +20,45 @@ router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
     }
 });
 
-// Update user role (Admin only)
-router.patch('/:id/role', authenticateToken, requireRole(['admin']), async (req, res) => {
+// Create user (Admin only)
+router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const { nama, username, password, role } = req.body;
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const { data, error } = await supabase
+            .from('users')
+            .insert([{ nama, username, password: hashedPassword, role }])
+            .select('id, nama, username, role')
+            .single();
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update user (Admin only)
+router.put('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
-        const { role } = req.body;
+        const { nama, username, role, password } = req.body;
 
-        if (!['admin', 'guru', 'siswa'].includes(role)) {
-            return res.status(400).json({ error: 'Invalid role' });
+        const updates = { nama, username, role };
+
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            updates.password = await bcrypt.hash(password, salt);
         }
 
         const { data, error } = await supabase
             .from('users')
-            .update({ role })
+            .update(updates)
             .eq('id', id)
-            .select('id, name, email, role')
+            .select('id, nama, username, role')
             .single();
 
         if (error) throw error;

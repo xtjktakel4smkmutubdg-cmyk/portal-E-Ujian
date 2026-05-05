@@ -4,16 +4,13 @@ import { authenticateToken, requireRole } from './middleware.js';
 
 const router = express.Router();
 
-// Get all exams (Siswa sees all, Guru sees their own, Admin sees all)
+// Get all exams
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        let query = supabase.from('exams').select('*, guru:guru_id(name)');
-
-        if (req.user.role === 'guru') {
-            query = query.eq('guru_id', req.user.id);
-        }
-
-        const { data, error } = await query.order('created_at', { ascending: false });
+        const { data, error } = await supabase
+            .from('exams')
+            .select('*')
+            .order('tanggal', { ascending: false });
 
         if (error) throw error;
         res.json(data);
@@ -22,13 +19,13 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
-// Get single exam details (and questions if guru/admin)
+// Get single exam details (with questions for admin)
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { data: exam, error: examError } = await supabase
             .from('exams')
-            .select('*, guru:guru_id(name)')
+            .select('*')
             .eq('id', id)
             .single();
 
@@ -36,8 +33,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
         let response = { ...exam };
 
-        // Include questions if user is guru who created it or admin
-        if (req.user.role === 'admin' || (req.user.role === 'guru' && exam.guru_id === req.user.id)) {
+        if (req.user.role === 'admin') {
             const { data: questions, error: qError } = await supabase
                 .from('questions')
                 .select('*')
@@ -54,20 +50,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Create new exam (Guru/Admin only)
-router.post('/', authenticateToken, requireRole(['guru', 'admin']), async (req, res) => {
+// Create new exam (Admin only)
+router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => {
     try {
-        const { title, description, duration_minutes, max_questions } = req.body;
+        const { title, durasi, tanggal } = req.body;
 
         const { data, error } = await supabase
             .from('exams')
-            .insert([{
-                title,
-                description,
-                duration_minutes,
-                max_questions,
-                guru_id: req.user.id
-            }])
+            .insert([{ title, durasi, tanggal }])
             .select()
             .single();
 
@@ -78,17 +68,48 @@ router.post('/', authenticateToken, requireRole(['guru', 'admin']), async (req, 
     }
 });
 
-// Add questions to exam (Guru/Admin only)
-router.post('/:id/questions', authenticateToken, requireRole(['guru', 'admin']), async (req, res) => {
+// Update exam (Admin only)
+router.put('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
-        const questions = req.body.questions; // Array of { question_text, options, correct_option }
+        const { title, durasi, tanggal } = req.body;
 
-        // Verify ownership
-        const { data: exam } = await supabase.from('exams').select('guru_id').eq('id', id).single();
-        if (!exam || (req.user.role === 'guru' && exam.guru_id !== req.user.id)) {
-            return res.status(403).json({ error: 'Unauthorized to add questions to this exam' });
-        }
+        const { data, error } = await supabase
+            .from('exams')
+            .update({ title, durasi, tanggal })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete exam (Admin only)
+router.delete('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { error } = await supabase
+            .from('exams')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        res.json({ message: 'Exam deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Manage questions for exam (Admin only)
+router.post('/:id/questions', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const questions = req.body.questions; // Array
 
         const questionsToInsert = questions.map(q => ({
             exam_id: id,
@@ -107,42 +128,18 @@ router.post('/:id/questions', authenticateToken, requireRole(['guru', 'admin']),
     }
 });
 
-
-// Generate questions with AI (Guru/Admin only)
-router.post('/generate-ai', authenticateToken, requireRole(['guru', 'admin']), async (req, res) => {
+// Delete Question
+router.delete('/questions/:qId', authenticateToken, requireRole(['admin']), async (req, res) => {
     try {
-        const { subject, topic, difficulty, count = 1 } = req.body;
+        const { qId } = req.params;
+        const { error } = await supabase
+            .from('questions')
+            .delete()
+            .eq('id', qId);
 
-        const promptText = `Buat ${count} soal pilihan ganda tentang ${subject} dengan topik ${topic} tingkat kesulitan ${difficulty}. Berikan respons HANYA dalam format JSON array dengan struktur: [{"question_text": "...", "options": ["...", "...", "...", "..."], "correct_option": 0}]. Pastikan hanya mengembalikan JSON yang valid tanpa penjelasan tambahan dan tanpa markdown block code.`;
-
-        const apiUrl = "https://api.deline.web.id/ai/copilot-think?text=" + encodeURIComponent(promptText);
-
-        const aiRes = await fetch(apiUrl);
-        const aiData = await aiRes.json();
-
-        if (!aiData.status) {
-            throw new Error('AI API Error');
-        }
-
-        let aiText = aiData.result.text;
-
-        // Clean up markdown code blocks if AI returns them
-        const match = aiText.match(/\[[\s\S]*\]/);
-        if (match) {
-            aiText = match[0];
-        }
-
-        let generatedQuestions = [];
-        try {
-            generatedQuestions = JSON.parse(aiText);
-        } catch {
-            console.error('Failed to parse AI response:', aiText);
-            return res.status(500).json({ error: 'AI returned invalid JSON format' });
-        }
-
-        res.json({ questions: generatedQuestions });
+        if (error) throw error;
+        res.json({ message: 'Question deleted' });
     } catch (err) {
-        console.error('Generate AI error:', err);
         res.status(500).json({ error: err.message });
     }
 });

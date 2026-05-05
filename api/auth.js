@@ -6,67 +6,75 @@ import { supabase } from './db.js';
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'portal_ujian_secret_key_123';
 
-router.post('/register', async (req, res) => {
-    try {
-        const { email, password, name, role } = req.body;
+// Login
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
 
-        if (!email || !password || !name) {
-            return res.status(400).json({ error: 'Missing required fields' });
-        }
-
-        // Check if user exists
-        const { data: existingUser } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
-
-        if (existingUser) {
-            return res.status(400).json({ error: 'User already exists' });
-        }
-
-        const password_hash = await bcrypt.hash(password, 10);
-        const userRole = role && ['admin', 'guru', 'siswa'].includes(role) ? role : 'siswa';
-
-        const { data, error } = await supabase
-            .from('users')
-            .insert([{ email, password_hash, name, role: userRole }])
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        const token = jwt.sign({ id: data.id, role: data.role }, JWT_SECRET, { expiresIn: '24h' });
-        res.status(201).json({ token, user: { id: data.id, name: data.name, email: data.email, role: data.role } });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
     }
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .single();
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, nama: user.nama },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        nama: user.nama,
+        username: user.username,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-router.post('/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
+// Get current user
+router.get('/me', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
+  if (!token) return res.status(401).json({ error: 'No token provided' });
 
-        if (error || !user) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
 
-        const validPassword = await bcrypt.compare(password, user.password_hash);
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, nama, username, role')
+      .eq('id', decoded.id)
+      .single();
 
-        const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (error || !user) {
+      return res.status(404).json({ error: 'User not found' });
     }
+
+    res.json(user);
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
 });
 
 export default router;
