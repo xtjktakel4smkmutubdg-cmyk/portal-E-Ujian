@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
-import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ManageExam from './pages/ManageExam';
 import TakeExam from './pages/TakeExam';
@@ -29,10 +28,9 @@ function AppRoutes() {
     return (
         <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
 
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/manage-exam" element={<ProtectedRoute allowedRoles={['guru', 'admin']}><ManageExam /></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute allowedRoles={['siswa']}><Dashboard /></ProtectedRoute>} />
+            <Route path="/manage-exam" element={<ProtectedRoute allowedRoles={['admin']}><ManageExam /></ProtectedRoute>} />
             <Route path="/take-exam/:id" element={<ProtectedRoute allowedRoles={['siswa']}><TakeExam /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
 

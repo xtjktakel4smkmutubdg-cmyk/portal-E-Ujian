@@ -6,21 +6,33 @@ const Navbar = () => {
     const { user, logout } = useAuth();
 
     return (
-        <nav className="bg-white shadow-sm border-b">
+        <nav className="bg-[#0f6cb6] shadow text-white">
             <div className="container mx-auto px-4 max-w-7xl">
-                <div className="flex justify-between h-16">
+                <div className="flex justify-between h-14">
                     <div className="flex">
-                        <Link to="/" className="flex items-center text-xl font-bold text-primary">
-                            Portal Ujian
+                        <Link to="/" className="flex items-center text-xl font-bold">
+                            Portal Ujian Online
                         </Link>
+                        <div className="hidden md:flex ml-10 space-x-4 items-center">
+                            <Link to={user?.role === 'admin' ? '/admin' : '/'} className="px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0a528c]">
+                                Dashboard
+                            </Link>
+                            {user?.role === 'admin' && (
+                                <Link to="/manage-exam" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0a528c]">
+                                    Site Administration
+                                </Link>
+                            )}
+                        </div>
                     </div>
                     <div className="flex items-center space-x-4">
-                        <span className="text-gray-700">Hi, {user?.name} ({user?.role})</span>
+                        <div className="hidden md:block text-sm">
+                            You are logged in as <strong>{user?.nama}</strong> ({user?.role})
+                        </div>
                         <button
                             onClick={logout}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded text-sm font-medium transition-colors"
+                            className="text-white hover:text-gray-200 text-sm font-medium transition-colors"
                         >
-                            Logout
+                            Log out
                         </button>
                     </div>
                 </div>

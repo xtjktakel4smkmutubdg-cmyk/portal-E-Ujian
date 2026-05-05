@@ -1,101 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function TakeExam() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
+
     const [exam, setExam] = useState(null);
-    const [attempt, setAttempt] = useState(null);
     const [questions, setQuestions] = useState([]);
     const [answers, setAnswers] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [timeLeft, setTimeLeft] = useState(null);
+    const [started, setStarted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [result, setResult] = useState(null);
 
     useEffect(() => {
-        const initExam = async () => {
+        const fetchExamDetails = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const headers = { 'Authorization': `Bearer ${token}` };
 
-                // Get exam details to show before starting
-                const examRes = await fetch(`/api/exams/${id}`, { headers });
+                // Fetch exam details
+                const examRes = await fetch(`http://localhost:3000/api/exams/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
                 if (!examRes.ok) throw new Error('Exam not found');
                 const examData = await examRes.json();
                 setExam(examData);
+
+                // Check if user has already taken it
+                const resultRes = await fetch(`http://localhost:3000/api/attempts/exam/${id}/results/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (resultRes.ok) {
+                    const resultData = await resultRes.json();
+                    if (resultData.answers && resultData.answers.length > 0) {
+                        setResult(resultData);
+                    }
+                }
+
             } catch (err) {
                 setError(err.message);
             } finally {
                 setLoading(false);
             }
         };
-        initExam();
+        fetchExamDetails();
     }, [id]);
-
-    useEffect(() => {
-        if (!attempt || !exam) return;
-
-        // Calculate time left
-        const startTime = new Date(attempt.start_time).getTime();
-        const durationMs = exam.duration_minutes * 60 * 1000;
-        const endTime = startTime + durationMs;
-
-        const timer = setInterval(() => {
-            const now = new Date().getTime();
-            const remaining = endTime - now;
-
-            if (remaining <= 0) {
-                clearInterval(timer);
-                setTimeLeft(0);
-                handleFinishAttempt(); // Auto submit
-            } else {
-                setTimeLeft(remaining);
-            }
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [attempt, exam]);
 
     const handleStartAttempt = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const headers = {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            };
-
-            const startRes = await fetch('/api/attempts/start', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ exam_id: id })
+            const qRes = await fetch(`http://localhost:3000/api/attempts/exam/${id}/questions`, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
-            const attemptData = await startRes.json();
-
-            if (!startRes.ok) throw new Error(attemptData.error);
-            setAttempt(attemptData);
-
-            if (attemptData.status === 'completed') {
-                setError('You have already completed this exam.');
-                setLoading(false);
-                return;
-            }
-
-            const qRes = await fetch(`/api/attempts/${attemptData.id}/questions`, { headers });
+            if (!qRes.ok) throw new Error('Failed to load questions');
             const qData = await qRes.json();
 
-            if (!qRes.ok) throw new Error(qData.error);
-
-            setQuestions(qData.questions);
-
-            // Map existing answers
-            const ansMap = {};
-            qData.answers.forEach(a => {
-                ansMap[a.question_id] = a.selected_option;
-            });
-            setAnswers(ansMap);
-
+            setQuestions(qData);
+            setStarted(true);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -103,123 +69,144 @@ export default function TakeExam() {
         }
     };
 
-    const handleAnswerSelect = async (questionId, optionIndex) => {
-        const newAnswers = { ...answers, [questionId]: optionIndex };
-        setAnswers(newAnswers);
+    const handleAnswerChange = (qId, val) => {
+        setAnswers({ ...answers, [qId]: val });
+    };
 
+    const handleSubmitExam = async () => {
+        if (!window.confirm('Once you submit, you will no longer be able to change your answers for this attempt. Submit?')) return;
+
+        setSubmitting(true);
         try {
             const token = localStorage.getItem('token');
-            await fetch(`/api/attempts/${attempt.id}/answer`, {
+            const res = await fetch(`http://localhost:3000/api/attempts/exam/${id}/submit`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ question_id: questionId, selected_option: optionIndex })
-            });
-        } catch (err) {
-            console.error("Failed to save answer", err);
-        }
-    };
-
-    const handleFinishAttempt = async () => {
-        if (submitting) return;
-        setSubmitting(true);
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/attempts/${attempt.id}/finish`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+                body: JSON.stringify({ answers })
             });
 
-            if (res.ok) {
-                const data = await res.json();
-                alert(`Exam completed! Your score is ${Number(data.score).toFixed(1)}%`);
-                navigate('/');
-            }
+            if (!res.ok) throw new Error('Failed to submit exam');
+
+            // Reload page to show results
+            window.location.reload();
         } catch (err) {
-            alert('Failed to submit exam. Please try again.');
-        } finally {
+            alert(err.message);
             setSubmitting(false);
         }
     };
 
-    const formatTime = (ms) => {
-        if (!ms) return '00:00:00';
-        const totalSeconds = Math.floor(ms / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    };
-
-    if (loading) return <div>Loading exam...</div>;
-    if (error) return <div className="text-red-500 bg-red-100 p-4 rounded">{error}</div>;
+    if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
+    if (error) return <div className="bg-red-50 text-red-500 p-4 rounded border border-red-200">{error}</div>;
     if (!exam) return <div>Exam not found.</div>;
 
-    // Before starting
-    if (!attempt) {
+    if (result) {
         return (
-            <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow mt-8 text-center">
-                <h1 className="text-3xl font-bold mb-4">{exam.title}</h1>
-                <p className="text-gray-600 mb-6">{exam.description}</p>
-                <div className="bg-blue-50 p-4 rounded mb-8 inline-block text-left">
-                    <p><strong>Duration:</strong> {exam.duration_minutes} Minutes</p>
-                    <p><strong>Questions:</strong> {exam.max_questions}</p>
+            <div className="space-y-6 max-w-4xl mx-auto">
+                <div className="bg-white p-6 rounded shadow-sm border border-gray-200">
+                    <h1 className="text-2xl font-bold text-[#0f6cb6] mb-4">{exam.title}</h1>
+                    <div className="bg-green-50 text-green-800 p-4 rounded mb-6 border border-green-200">
+                        <h2 className="font-bold mb-2">You have completed this exam.</h2>
+                        <p>Total Score: <strong>{result.totalScore}</strong> / {result.answers.length}</p>
+                        <p>Percentage: <strong>{((result.totalScore / result.answers.length) * 100).toFixed(1)}%</strong></p>
+                    </div>
+
+                    <h3 className="font-bold text-lg mb-4 border-b pb-2">Review Answers</h3>
+                    <div className="space-y-6">
+                        {result.answers.map((item, idx) => {
+                            const isCorrect = item.answer === item.questions.correct_answer;
+                            return (
+                                <div key={idx} className={`p-4 border rounded ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                    <div className="flex gap-4">
+                                        <div className="w-12 h-12 flex-shrink-0 bg-gray-100 border border-gray-300 rounded flex items-center justify-center font-bold">
+                                            {idx + 1}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="mb-2 font-medium" dangerouslySetInnerHTML={{__html: item.questions.question_text}}></p>
+                                            <div className="text-sm space-y-1">
+                                                <p>Your answer: <strong>{item.answer || '-'}</strong></p>
+                                                {!isCorrect && <p className="text-green-600">Correct answer: <strong>{item.questions.correct_answer}</strong></p>}
+                                            </div>
+                                        </div>
+                                        <div className="text-sm font-bold text-gray-500 w-16 text-right">
+                                            Mark {item.score} out of 1
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="mt-8 text-center">
+                        <button onClick={() => navigate('/')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">Back to course</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!started) {
+        return (
+            <div className="max-w-3xl mx-auto bg-white p-8 rounded shadow-sm border border-gray-200 text-center">
+                <h1 className="text-2xl font-bold text-[#0f6cb6] mb-6">{exam.title}</h1>
+                <div className="bg-[#f8f9fa] border border-gray-200 p-6 rounded mb-8 inline-block text-left w-full max-w-md">
+                    <p className="mb-2"><strong>Time limit:</strong> {exam.durasi} mins</p>
+                    <p><strong>Grading method:</strong> Highest grade</p>
                 </div>
                 <div>
                     <button
                         onClick={handleStartAttempt}
-                        className="bg-primary text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition"
+                        className="bg-[#0f6cb6] text-white px-6 py-2 rounded font-medium hover:bg-[#0a528c] transition"
                     >
-                        Start Exam Now
+                        Attempt quiz now
                     </button>
                 </div>
             </div>
         );
     }
 
-    // Exam in progress
     return (
-        <div className="max-w-4xl mx-auto flex gap-6 relative">
+        <div className="max-w-5xl mx-auto flex gap-6">
             <div className="flex-1 space-y-6 pb-20">
-                <div className="bg-white p-4 rounded-lg shadow sticky top-4 z-10 flex justify-between items-center border-b-4 border-primary">
-                    <h2 className="font-bold text-lg truncate w-1/2">{exam.title}</h2>
-                    <div className="text-right flex items-center gap-4">
-                        <div className={`font-mono text-xl font-bold ${timeLeft < 300000 ? 'text-red-600 animate-pulse' : 'text-gray-800'}`}>
-                            Time Left: {formatTime(timeLeft)}
-                        </div>
-                        <button
-                            onClick={() => {
-                                if(window.confirm('Are you sure you want to submit your exam now?')) handleFinishAttempt();
-                            }}
-                            disabled={submitting}
-                            className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 disabled:opacity-50"
-                        >
-                            {submitting ? 'Submitting...' : 'Finish Exam'}
-                        </button>
-                    </div>
+                <div className="bg-white p-4 rounded shadow-sm border border-gray-200 mb-6">
+                    <h2 className="font-bold text-lg text-[#0f6cb6]">{exam.title}</h2>
                 </div>
 
                 {questions.map((q, idx) => (
-                    <div key={q.id} id={`q-${idx}`} className="bg-white p-6 rounded-lg shadow border border-gray-200">
-                        <h3 className="font-medium text-lg mb-4">
-                            <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-sm mr-2">{idx + 1}</span>
-                            {q.question_text}
-                        </h3>
-                        <div className="space-y-2 ml-8">
-                            {q.options.map((opt, oIdx) => (
-                                <label key={oIdx} className="flex items-center gap-3 p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name={`question-${q.id}`}
-                                        checked={answers[q.id] === oIdx}
-                                        onChange={() => handleAnswerSelect(q.id, oIdx)}
-                                        className="h-4 w-4 text-primary"
-                                    />
-                                    <span>{opt}</span>
-                                </label>
-                            ))}
+                    <div key={q.id} id={`q-${idx}`} className="bg-white rounded shadow-sm border border-gray-200 flex">
+                        {/* Info Block (Moodle Style) */}
+                        <div className="bg-[#f8f9fa] w-32 p-4 border-r border-gray-200 text-sm">
+                            <p className="font-bold text-gray-700">Question <span className="text-xl">{idx + 1}</span></p>
+                            <p className="text-gray-500 mt-2">Not yet answered</p>
+                            <p className="text-gray-500 mt-1">Marked out of 1.00</p>
+                        </div>
+                        {/* Question Content */}
+                        <div className="flex-1 p-6">
+                            <div className="mb-4" dangerouslySetInnerHTML={{__html: q.question_text}}></div>
+
+                            <div className="space-y-2">
+                                {['a', 'b', 'c', 'd', 'e'].map(letter => {
+                                    const optValue = q[`option_${letter}`];
+                                    if (!optValue) return null;
+                                    const val = letter.toUpperCase();
+                                    return (
+                                        <div key={letter} className="flex items-start">
+                                            <input
+                                                type="radio"
+                                                id={`q_${q.id}_${val}`}
+                                                name={`question-${q.id}`}
+                                                value={val}
+                                                checked={answers[q.id] === val}
+                                                onChange={() => handleAnswerChange(q.id, val)}
+                                                className="mt-1 mr-3 h-4 w-4 text-[#0f6cb6]"
+                                            />
+                                            <label htmlFor={`q_${q.id}_${val}`} className="text-gray-800 cursor-pointer">{letter}. {optValue}</label>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -227,21 +214,34 @@ export default function TakeExam() {
 
             {/* Navigation Sidebar */}
             <div className="w-64 hidden md:block">
-                <div className="bg-white p-4 rounded-lg shadow sticky top-4">
-                    <h3 className="font-bold mb-3 border-b pb-2">Exam Navigation</h3>
-                    <div className="grid grid-cols-5 gap-2">
-                        {questions.map((q, idx) => (
-                            <button
-                                key={q.id}
-                                onClick={() => document.getElementById(`q-${idx}`).scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                className={`h-8 w-8 rounded text-sm font-medium flex items-center justify-center border
-                                    ${answers[q.id] !== undefined
-                                        ? 'bg-gray-600 text-white border-gray-600'
-                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
-                            >
-                                {idx + 1}
-                            </button>
-                        ))}
+                <div className="bg-white rounded shadow-sm border border-gray-200 sticky top-4">
+                    <div className="bg-[#f8f9fa] border-b border-gray-200 p-3">
+                        <h3 className="font-bold text-gray-700 text-sm">Quiz navigation</h3>
+                    </div>
+                    <div className="p-4">
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            {questions.map((q, idx) => {
+                                const isAnswered = !!answers[q.id];
+                                return (
+                                    <button
+                                        key={q.id}
+                                        onClick={() => document.getElementById(`q-${idx}`).scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                                        className={`w-8 h-10 border rounded text-xs font-medium flex flex-col items-center
+                                            ${isAnswered ? 'border-gray-500' : 'border-gray-300'}`}
+                                    >
+                                        <span className="w-full h-1/2 flex items-center justify-center bg-gray-100 border-b">{idx + 1}</span>
+                                        <span className={`w-full h-1/2 ${isAnswered ? 'bg-gray-500' : 'bg-white'}`}></span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <button
+                            onClick={handleSubmitExam}
+                            disabled={submitting}
+                            className="w-full text-left text-sm text-[#0f6cb6] hover:underline"
+                        >
+                            {submitting ? 'Submitting...' : 'Finish attempt ...'}
+                        </button>
                     </div>
                 </div>
             </div>
