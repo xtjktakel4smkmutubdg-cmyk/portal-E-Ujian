@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function ManageExam() {
@@ -14,6 +14,56 @@ export default function ManageExam() {
     ]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // AI Generation states
+    const [showAIModal, setShowAIModal] = useState(false);
+    const [aiForm, setAiForm] = useState({
+        subject: '',
+        topic: '',
+        difficulty: 'Mudah',
+        count: 1
+    });
+    const [generatingAI, setGeneratingAI] = useState(false);
+
+    const handleAiFormChange = (e) => {
+        setAiForm({ ...aiForm, [e.target.name]: e.target.value });
+    };
+
+    const handleGenerateAI = async (e) => {
+        e.preventDefault();
+        setGeneratingAI(true);
+        setError('');
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/exams/generate-ai', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(aiForm)
+            });
+
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Failed to generate questions');
+
+            if (result.questions && result.questions.length > 0) {
+                // If there's currently only one empty question, replace it. Otherwise append.
+                if (questions.length === 1 && questions[0].question_text === '') {
+                    setQuestions(result.questions);
+                } else {
+                    setQuestions([...questions, ...result.questions]);
+                }
+                setExamData({ ...examData, max_questions: questions.length + result.questions.length });
+                setShowAIModal(false);
+            }
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setGeneratingAI(false);
+        }
+    };
 
     const handleExamChange = (e) => {
         setExamData({ ...examData, [e.target.name]: e.target.value });
@@ -116,9 +166,14 @@ export default function ManageExam() {
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
                         <h2 className="text-xl font-semibold">Questions ({questions.length})</h2>
-                        <button type="button" onClick={addQuestion} className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
-                            + Add Question
-                        </button>
+                        <div className="space-x-2">
+                            <button type="button" onClick={() => setShowAIModal(true)} className="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700">
+                                ✨ Generate with AI
+                            </button>
+                            <button type="button" onClick={addQuestion} className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
+                                + Add Question
+                            </button>
+                        </div>
                     </div>
 
                     {questions.map((q, qIndex) => (
@@ -176,6 +231,49 @@ export default function ManageExam() {
                     </button>
                 </div>
             </form>
+
+            {/* AI Generation Modal */}
+            {showAIModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                            ✨ Generate Questions with AI
+                        </h3>
+                        <form onSubmit={handleGenerateAI} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Mata Pelajaran</label>
+                                <input type="text" name="subject" required value={aiForm.subject} onChange={handleAiFormChange} placeholder="e.g., Matematika, Sejarah" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Topik</label>
+                                <input type="text" name="topic" required value={aiForm.topic} onChange={handleAiFormChange} placeholder="e.g., Aljabar, Perang Dunia II" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Tingkat Kesulitan</label>
+                                    <select name="difficulty" value={aiForm.difficulty} onChange={handleAiFormChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary">
+                                        <option value="Mudah">Mudah</option>
+                                        <option value="Sedang">Sedang</option>
+                                        <option value="Sulit">Sulit</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Jumlah Soal</label>
+                                    <input type="number" name="count" required min="1" max="10" value={aiForm.count} onChange={handleAiFormChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary" />
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-4">
+                                <button type="button" onClick={() => setShowAIModal(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                                    Batal
+                                </button>
+                                <button type="submit" disabled={generatingAI} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                                    {generatingAI ? 'Menghasilkan...' : 'Generate Soal'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

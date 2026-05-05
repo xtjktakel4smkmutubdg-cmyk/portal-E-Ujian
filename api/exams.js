@@ -107,4 +107,44 @@ router.post('/:id/questions', authenticateToken, requireRole(['guru', 'admin']),
     }
 });
 
+
+// Generate questions with AI (Guru/Admin only)
+router.post('/generate-ai', authenticateToken, requireRole(['guru', 'admin']), async (req, res) => {
+    try {
+        const { subject, topic, difficulty, count = 1 } = req.body;
+
+        const promptText = `Buat ${count} soal pilihan ganda tentang ${subject} dengan topik ${topic} tingkat kesulitan ${difficulty}. Berikan respons HANYA dalam format JSON array dengan struktur: [{"question_text": "...", "options": ["...", "...", "...", "..."], "correct_option": 0}]. Pastikan hanya mengembalikan JSON yang valid tanpa penjelasan tambahan dan tanpa markdown block code.`;
+
+        const apiUrl = "https://api.deline.web.id/ai/copilot-think?text=" + encodeURIComponent(promptText);
+
+        const aiRes = await fetch(apiUrl);
+        const aiData = await aiRes.json();
+
+        if (!aiData.status) {
+            throw new Error('AI API Error');
+        }
+
+        let aiText = aiData.result.text;
+
+        // Clean up markdown code blocks if AI returns them
+        const match = aiText.match(/\[[\s\S]*\]/);
+        if (match) {
+            aiText = match[0];
+        }
+
+        let generatedQuestions = [];
+        try {
+            generatedQuestions = JSON.parse(aiText);
+        } catch {
+            console.error('Failed to parse AI response:', aiText);
+            return res.status(500).json({ error: 'AI returned invalid JSON format' });
+        }
+
+        res.json({ questions: generatedQuestions });
+    } catch (err) {
+        console.error('Generate AI error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 export default router;
