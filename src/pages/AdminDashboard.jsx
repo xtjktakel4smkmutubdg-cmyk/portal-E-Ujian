@@ -17,7 +17,7 @@ export default function AdminDashboard() {
     const fetchUsers = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:3000/api/users', {
+            const res = await fetch('/api/users', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Failed to fetch users');
@@ -35,7 +35,7 @@ export default function AdminDashboard() {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:3000/api/users/${userId}`, {
+            const res = await fetch(`/api/users/${userId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
         e.preventDefault();
         try {
             const token = localStorage.getItem('token');
-            const url = currentUser ? `http://localhost:3000/api/users/${currentUser.id}` : `http://localhost:3000/api/users`;
+            const url = currentUser ? `/api/users/${currentUser.id}` : `/api/users`;
             const method = currentUser ? 'PUT' : 'POST';
 
             const payload = { ...formData };

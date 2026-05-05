@@ -22,7 +22,7 @@ export default function TakeExam() {
                 const token = localStorage.getItem('token');
 
                 // Fetch exam details
-                const examRes = await fetch(`http://localhost:3000/api/exams/${id}`, {
+                const examRes = await fetch(`/api/exams/${id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -31,7 +31,7 @@ export default function TakeExam() {
                 setExam(examData);
 
                 // Check if user has already taken it
-                const resultRes = await fetch(`http://localhost:3000/api/attempts/exam/${id}/results/me`, {
+                const resultRes = await fetch(`/api/attempts/exam/${id}/results/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (resultRes.ok) {
@@ -54,7 +54,7 @@ export default function TakeExam() {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const qRes = await fetch(`http://localhost:3000/api/attempts/exam/${id}/questions`, {
+            const qRes = await fetch(`/api/attempts/exam/${id}/questions`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!qRes.ok) throw new Error('Failed to load questions');
@@ -79,7 +79,7 @@ export default function TakeExam() {
         setSubmitting(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:3000/api/attempts/exam/${id}/submit`, {
+            const res = await fetch(`/api/attempts/exam/${id}/submit`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
