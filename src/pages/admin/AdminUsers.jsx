@@ -190,9 +190,9 @@ export default function AdminUsers() {
 
       {/* MODAL USER (CREATE/EDIT) */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in" style={{backdropFilter:'blur(8px)'}}>
-          <div className="w-full max-w-xl rounded-2xl border animate-scale-in shadow-2xl" style={{background:'var(--admin-card)',borderColor:'var(--admin-border)'}}>
-            <div className="p-6 border-b" style={{borderColor:'var(--admin-border)'}}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-0 sm:p-4 animate-fade-in" style={{backdropFilter:'blur(8px)'}}>
+          <div className="w-full h-full sm:h-auto max-w-xl sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-2xl border-0 sm:border animate-scale-in shadow-2xl flex flex-col" style={{background:'var(--admin-card)',borderColor:'var(--admin-border)'}}>
+            <div className="p-6 border-b sticky top-0 z-10" style={{background:'var(--admin-card)', borderColor:'var(--admin-border)'}}>
               <h2 className="text-2xl font-bold text-white">{editUser?'Edit Pengguna':'Tambah Pengguna'}</h2>
             </div>
             <form onSubmit={handleSave} className="p-6 space-y-5">
@@ -236,9 +236,9 @@ export default function AdminUsers() {
 
       {/* MODAL BULK IMPORT */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in" style={{backdropFilter:'blur(8px)'}}>
-          <div className="w-full max-w-2xl rounded-2xl border animate-scale-in shadow-2xl" style={{background:'var(--admin-card)',borderColor:'var(--admin-border)'}}>
-            <div className="p-6 border-b flex justify-between items-center" style={{borderColor:'var(--admin-border)'}}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-0 sm:p-4 animate-fade-in" style={{backdropFilter:'blur(8px)'}}>
+          <div className="w-full h-full sm:h-auto max-w-2xl sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-2xl border-0 sm:border animate-scale-in shadow-2xl flex flex-col" style={{background:'var(--admin-card)',borderColor:'var(--admin-border)'}}>
+            <div className="p-6 border-b flex justify-between items-center sticky top-0 z-10" style={{background:'var(--admin-card)', borderColor:'var(--admin-border)'}}>
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">📋 Bulk Import Siswa</h2>
               <button onClick={() => setShowBulkModal(false)} className="text-[var(--admin-text-secondary)] hover:text-white transition-colors">
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>

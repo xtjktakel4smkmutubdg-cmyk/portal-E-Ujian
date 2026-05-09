@@ -168,9 +168,9 @@ Contoh Format:
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in" style={{backdropFilter:'blur(8px)'}}>
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl animate-scale-in" style={{background:'var(--admin-card)',borderColor:'var(--admin-border)'}}>
-            <div className="p-8 border-b" style={{borderColor:'var(--admin-border)'}}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-0 sm:p-4 animate-fade-in" style={{backdropFilter:'blur(8px)'}}>
+          <div className="w-full h-full sm:h-auto max-w-3xl sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-3xl border-0 sm:border shadow-2xl animate-scale-in" style={{background:'var(--admin-card)',borderColor:'var(--admin-border)'}}>
+            <div className="p-8 border-b sticky top-0 z-10" style={{background:'var(--admin-card)',borderColor:'var(--admin-border)'}}>
               <h2 className="text-2xl font-extrabold text-white">{editExam?'Edit Detail Ujian':'Buat Ujian Baru'}</h2>
               <p className="text-[var(--admin-text-secondary)] mt-1 text-sm font-medium">Lengkapi pengaturan jadwal dan sistem penilaian.</p>
             </div>
@@ -206,9 +206,9 @@ Contoh Format:
       )}
 
       {showQModal && (
-        <div className="fixed inset-0 z-[40] flex items-center justify-center bg-black/60 p-4 animate-fade-in" style={{backdropFilter:'blur(8px)'}}>
-          <div className="w-full max-w-5xl max-h-[95vh] h-full flex flex-col rounded-3xl border shadow-2xl animate-scale-in" style={{background:'var(--admin-bg)',borderColor:'var(--admin-border)'}}>
-            <div className="p-6 md:p-8 border-b flex flex-col sm:flex-row items-center justify-between gap-4 bg-[var(--admin-card)] rounded-t-3xl" style={{borderColor:'var(--admin-border)'}}>
+        <div className="fixed inset-0 z-[40] flex items-center justify-center bg-black/60 p-0 sm:p-4 animate-fade-in" style={{backdropFilter:'blur(8px)'}}>
+          <div className="w-full h-full sm:max-h-[95vh] max-w-6xl rounded-none sm:rounded-3xl border-0 sm:border shadow-2xl animate-scale-in flex flex-col" style={{background:'var(--admin-bg)',borderColor:'var(--admin-border)'}}>
+            <div className="p-6 md:p-8 border-b flex flex-col sm:flex-row items-center justify-between gap-4 bg-[var(--admin-card)] sm:rounded-t-3xl rounded-none sticky top-0 z-10" style={{borderColor:'var(--admin-border)'}}>
               <div>
                 <h2 className="text-2xl font-extrabold text-white">Bank Soal ({questions.length} Butir)</h2>
                 <p className="text-[var(--admin-text-secondary)] text-sm font-medium mt-1">Atur, edit, dan import pertanyaan ujian.</p>
@@ -303,9 +303,9 @@ Contoh Format:
 
       {/* AI Import Modal */}
       {showAiModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 animate-fade-in" style={{backdropFilter:'blur(12px)'}}>
-          <div className="w-full max-w-3xl rounded-3xl border shadow-2xl animate-scale-in flex flex-col max-h-[90vh]" style={{background:'var(--admin-card)',borderColor:'var(--admin-border)'}}>
-            <div className="p-6 border-b flex justify-between items-center" style={{borderColor:'var(--admin-border)'}}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-0 sm:p-4 animate-fade-in" style={{backdropFilter:'blur(12px)'}}>
+          <div className="w-full h-full sm:h-auto max-w-4xl sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-3xl border-0 sm:border shadow-2xl animate-scale-in flex flex-col" style={{background:'var(--admin-card)',borderColor:'var(--admin-border)'}}>
+            <div className="p-6 border-b flex justify-between items-center sticky top-0 z-10" style={{background:'var(--admin-card)', borderColor:'var(--admin-border)'}}>
               <h2 className="text-xl font-extrabold text-white flex items-center gap-2"><span>✨</span> Import Soal via AI</h2>
               <button onClick={()=>setShowAiModal(false)} className="text-[var(--admin-text-secondary)] hover:text-white"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
