@@ -41,111 +41,108 @@ export default function AdminDashboard() {
 
   if (loading) return (
     <div className="flex justify-center py-20">
-      <div className="text-center">
-        <div className="w-10 h-10 border-4 border-[var(--admin-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-        <p className="text-[var(--admin-text-secondary)] text-sm">Memuat...</p>
+      <div className="text-center text-gray-500">
+        <div className="w-8 h-8 border-4 border-[#0f6cb6] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p className="text-sm font-semibold">Memuat...</p>
       </div>
     </div>
   );
 
   const statCards = [
-    { label: 'Total Ujian', value: stats.exams, icon: '📝', gradient: 'linear-gradient(135deg, #4f46e5, #6366f1)', shadow: 'rgba(79, 70, 229, 0.2)' },
-    { label: 'Ujian Aktif', value: stats.activeExams, icon: '🟢', gradient: 'linear-gradient(135deg, #10b981, #34d399)', shadow: 'rgba(16, 185, 129, 0.2)' },
-    { label: 'Total Siswa', value: stats.users, icon: '👥', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)', shadow: 'rgba(139, 92, 246, 0.2)' },
-    { label: 'Admin', value: stats.totalAdmins, icon: '🔐', gradient: 'linear-gradient(135deg, #ef4444, #f87171)', shadow: 'rgba(239, 68, 68, 0.2)' },
+    { label: 'Total Ujian', value: stats.exams, icon: '📝', color: '#0f6cb6' },
+    { label: 'Ujian Aktif', value: stats.activeExams, icon: '🟢', color: '#5cb85c' },
+    { label: 'Total Siswa', value: stats.users, icon: '👥', color: '#f0ad4e' },
+    { label: 'Admin', value: stats.totalAdmins, icon: '🔐', color: '#d9534f' },
   ];
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6">
+      <div className="moodle-breadcrumb mb-2">
+        <Link to="/admin/dashboard">Dashboard</Link>
+      </div>
       <div>
-        <h1 className="text-2xl font-extrabold text-white tracking-tight">Dashboard</h1>
-        <p className="text-[var(--admin-text-secondary)] mt-1 font-medium">Selamat datang di panel administrasi Portal E-Ujian</p>
+        <h1 className="text-2xl font-bold text-[#333]">Dashboard</h1>
+        <p className="text-[#6c757d] text-sm mt-1">Selamat datang di panel administrasi Portal E-Ujian</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {statCards.map((card, i) => (
-          <div key={i} className="card-admin p-5 animate-slide-in-up" style={{ animationDelay: `${i * 0.08}s` }}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg"
-                style={{ background: card.gradient, boxShadow: `0 4px 16px ${card.shadow}` }}>
-                <span className="drop-shadow-sm">{card.icon}</span>
-              </div>
-              <span className="text-3xl font-extrabold text-white">{card.value}</span>
+          <div key={i} className="moodle-info-box" style={{ borderLeftColor: card.color }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-2xl">{card.icon}</span>
+              <span className="text-2xl font-bold text-[#333]">{card.value}</span>
             </div>
-            <p className="text-[var(--admin-text-secondary)] text-sm font-semibold">{card.label}</p>
+            <p className="text-[#6c757d] text-xs font-bold uppercase tracking-wider">{card.label}</p>
           </div>
         ))}
       </div>
 
       {/* Quick actions */}
       <div className="grid md:grid-cols-2 gap-4">
-        <Link to="/admin/exams" className="card-admin p-5 flex items-center gap-4 group">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center gradient-primary transition-all group-hover:scale-105"
-            style={{ boxShadow: '0 4px 16px rgba(79, 70, 229, 0.25)' }}>
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-            </svg>
-          </div>
-          <div className="flex-1">
-            <h3 className="text-white font-bold">Buat Ujian Baru</h3>
-            <p className="text-[var(--admin-text-secondary)] text-sm">Tambah ujian dengan soal dan pengaturan</p>
-          </div>
-          <svg className="w-5 h-5 text-[var(--admin-text-secondary)] group-hover:text-white group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/>
-          </svg>
-        </Link>
-        <Link to="/admin/users" className="card-admin p-5 flex items-center gap-4 group">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-all group-hover:scale-105"
-            style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', boxShadow: '0 4px 16px rgba(139, 92, 246, 0.25)' }}>
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-            </svg>
-          </div>
-          <div className="flex-1">
-            <h3 className="text-white font-bold">Tambah Peserta</h3>
-            <p className="text-[var(--admin-text-secondary)] text-sm">Kelola akun siswa dan peserta ujian</p>
-          </div>
-          <svg className="w-5 h-5 text-[var(--admin-text-secondary)] group-hover:text-white group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/>
-          </svg>
-        </Link>
-      </div>
-
-      {/* Recent exams */}
-      <div className="card-admin overflow-hidden">
-        <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--admin-border)' }}>
-          <h2 className="text-white font-bold">Ujian Terbaru</h2>
-          <Link to="/admin/exams" className="text-[var(--admin-accent)] text-sm font-semibold hover:underline">Lihat semua →</Link>
+        <div className="card-admin p-4">
+          <h3 className="text-[#333] font-bold border-b pb-2 mb-3">Tindakan Cepat</h3>
+          <ul className="space-y-2">
+            <li>
+              <Link to="/admin/exams" className="text-[#0f6cb6] hover:underline flex items-center gap-2 text-sm">
+                <span>📝</span> Buat / Kelola Ujian
+              </Link>
+            </li>
+            <li>
+              <Link to="/admin/users" className="text-[#0f6cb6] hover:underline flex items-center gap-2 text-sm">
+                <span>👥</span> Tambah Peserta Ujian
+              </Link>
+            </li>
+          </ul>
         </div>
-        {recentExams.length === 0 ? (
-          <div className="p-10 text-center">
-            <div className="text-4xl mb-3 opacity-60">📝</div>
-            <p className="text-[var(--admin-text-secondary)] font-medium">Belum ada ujian. Buat ujian pertama Anda!</p>
+        
+        {/* Recent exams */}
+        <div className="card-admin">
+          <div className="p-4 border-b bg-[#f5f5f5]">
+            <h3 className="text-[#333] font-bold text-sm">Ujian Terbaru</h3>
           </div>
-        ) : (
-          <div>
-            {recentExams.map((exam, i) => {
-              const now = new Date();
-              const isActive = exam.is_active && new Date(exam.tanggal_mulai) <= now && new Date(exam.tanggal_selesai) >= now;
-              return (
-                <div key={exam.id} className="px-5 py-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-all"
-                  style={{ borderBottom: i < recentExams.length - 1 ? '1px solid var(--admin-border)' : 'none' }}>
-                  <div>
-                    <p className="text-white font-semibold text-sm">{exam.title}</p>
-                    <p className="text-[var(--admin-text-secondary)] text-xs mt-0.5 font-medium">{exam.mata_pelajaran || '-'} • {exam.durasi} menit</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${isActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/5 text-[var(--admin-text-secondary)]'}`}>
-                      {isActive ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                    <Link to={`/admin/exams/${exam.id}/results`} className="text-[var(--admin-accent)] text-xs font-semibold hover:underline">Hasil</Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+          {recentExams.length === 0 ? (
+            <div className="p-6 text-center text-[#6c757d] text-sm">
+              <p>Belum ada ujian. Buat ujian pertama Anda!</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="moodle-table">
+                <thead>
+                  <tr>
+                    <th>Nama Ujian</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentExams.map((exam) => {
+                    const now = new Date();
+                    const isActive = exam.is_active && new Date(exam.tanggal_mulai) <= now && new Date(exam.tanggal_selesai) >= now;
+                    return (
+                      <tr key={exam.id}>
+                        <td>
+                          <div className="font-semibold text-[#0f6cb6]">{exam.title}</div>
+                          <div className="text-xs text-[#6c757d] mt-1">{exam.mata_pelajaran || '-'} • {exam.durasi} menit</div>
+                        </td>
+                        <td>
+                          {isActive ? (
+                            <span className="moodle-badge moodle-badge-success">Aktif</span>
+                          ) : (
+                            <span className="moodle-badge moodle-badge-default">Nonaktif</span>
+                          )}
+                        </td>
+                        <td>
+                          <Link to={`/admin/exams/${exam.id}/results`} className="text-[#0f6cb6] text-xs font-semibold hover:underline">Lihat Hasil</Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

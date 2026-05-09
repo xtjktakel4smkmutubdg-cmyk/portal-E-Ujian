@@ -23,21 +23,36 @@ export default function AdminViolations() {
     devtools: { label:'DevTools', icon:'🔧', severity:'critical' },
     fullscreen_exit: { label:'Keluar Fullscreen', icon:'⬜', severity:'medium' },
   };
-  const getSeverityColor = (s) => { switch(s){ case 'critical': return 'bg-red-500/15 text-red-400 border-red-500/25'; case 'high': return 'bg-orange-500/15 text-orange-400 border-orange-500/25'; case 'medium': return 'bg-amber-500/15 text-amber-400 border-amber-500/25'; default: return 'bg-white/5 text-[var(--admin-text-secondary)] border-white/10'; } };
+  
+  const getSeverityColor = (s) => { 
+    switch(s){ 
+      case 'critical': return 'text-[#d9534f] bg-[#f2dede] border-[#ebccd1]'; 
+      case 'high': return 'text-[#8a6d3b] bg-[#fcf8e3] border-[#faebcc]'; 
+      case 'medium': return 'text-[#31708f] bg-[#d9edf7] border-[#bce8f1]'; 
+      default: return 'text-[#6c757d] bg-[#e9ecef] border-[#dee2e6]'; 
+    } 
+  };
 
   const totalViolations = results.reduce((s,r)=>s+r.violation_count,0);
   const autoSubmitted = results.filter(r=>r.auto_submitted).length;
 
-  if (loading) return <div className="flex justify-center py-20"><div className="w-10 h-10 border-4 border-[var(--admin-accent)] border-t-transparent rounded-full animate-spin"></div></div>;
+  if (loading) return <div className="flex justify-center py-20"><div className="w-10 h-10 border-4 border-[#0f6cb6] border-t-transparent rounded-full animate-spin"></div></div>;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div><h1 className="text-2xl font-extrabold text-white tracking-tight">🚨 Monitor Kecurangan</h1><p className="text-[var(--admin-text-secondary)] text-sm mt-1 font-medium">Pantau pelanggaran peserta selama ujian</p></div>
+    <div className="space-y-6">
+      <div className="moodle-breadcrumb">
+        <span>Monitor Kecurangan</span>
+      </div>
 
-      <div className="flex items-center gap-4">
+      <div>
+        <h1 className="text-2xl font-bold text-[#333]">🚨 Monitor Kecurangan</h1>
+        <p className="text-[#6c757d] text-sm mt-1">Pantau pelanggaran peserta selama ujian</p>
+      </div>
+
+      <div className="flex items-center gap-4 bg-[#fff] p-4 border rounded">
+        <label className="font-bold text-[#333]">Pilih Ujian:</label>
         <select value={selectedExam} onChange={e=>fetchResults(e.target.value)}
-          className="flex-1 max-w-md px-4 py-2.5 rounded-xl text-sm text-white focus:outline-none focus:border-[var(--admin-accent)] input-glow-admin transition-all"
-          style={{background:'rgba(12,15,26,0.6)',border:'1px solid var(--admin-border)'}}>
+          className="moodle-input max-w-md">
           <option value="">-- Pilih Ujian --</option>
           {exams.map(e=><option key={e.id} value={e.id}>{e.title}</option>)}
         </select>
@@ -45,52 +60,71 @@ export default function AdminViolations() {
 
       {selectedExam && (
         <>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { label:'Peserta Melanggar', value:results.length, gradient:'linear-gradient(135deg,#ef4444,#f87171)', shadow:'rgba(239,68,68,0.2)', icon:'⚠️' },
-              { label:'Total Pelanggaran', value:totalViolations, gradient:'linear-gradient(135deg,#f59e0b,#fbbf24)', shadow:'rgba(245,158,11,0.2)', icon:'🚨' },
-              { label:'Auto-Submit', value:autoSubmitted, gradient:'linear-gradient(135deg,#dc2626,#ef4444)', shadow:'rgba(220,38,38,0.2)', icon:'⛔' },
+              { label:'Peserta Melanggar', value:results.length, color:'#d9534f', icon:'⚠️' },
+              { label:'Total Pelanggaran', value:totalViolations, color:'#f0ad4e', icon:'🚨' },
+              { label:'Auto-Submit', value:autoSubmitted, color:'#d9534f', icon:'⛔' },
             ].map((s,i)=>(
-              <div key={i} className="card-admin p-4 animate-slide-in-up" style={{animationDelay:`${i*0.08}s`}}>
+              <div key={i} className="moodle-info-box" style={{borderLeftColor:s.color}}>
                 <div className="flex items-center justify-between mb-2">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{background:s.gradient,boxShadow:`0 4px 12px ${s.shadow}`}}><span>{s.icon}</span></div>
-                  <span className="text-2xl font-extrabold text-white">{s.value}</span>
+                  <span className="text-2xl">{s.icon}</span>
+                  <span className="text-2xl font-bold text-[#333]">{s.value}</span>
                 </div>
-                <p className="text-[var(--admin-text-secondary)] text-xs font-semibold">{s.label}</p>
+                <p className="text-[#6c757d] text-xs font-bold uppercase tracking-wider">{s.label}</p>
               </div>
             ))}
           </div>
 
           {results.length===0 ? (
-            <div className="card-admin p-14 text-center"><div className="text-5xl mb-3">✅</div><p className="text-emerald-400 font-semibold">Tidak ada pelanggaran terdeteksi</p></div>
+            <div className="card-admin p-14 text-center">
+              <div className="text-5xl mb-3">✅</div>
+              <p className="text-[#5cb85c] font-bold text-lg">Tidak ada pelanggaran terdeteksi</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {results.map(r=>(
-                <div key={r.id} className="card-admin overflow-hidden" style={{borderColor:r.violation_count>=5?'rgba(239,68,68,0.4)':'var(--admin-border)'}}>
-                  <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/[0.02] transition-all" onClick={()=>setExpandedSession(expandedSession===r.id?null:r.id)}>
+                <div key={r.id} className="card-admin overflow-hidden" style={{borderColor:r.violation_count>=5?'#d9534f':'#dee2e6'}}>
+                  <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-[#f5f5f5] transition-all" onClick={()=>setExpandedSession(expandedSession===r.id?null:r.id)}>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{background:r.violation_count>=5?'linear-gradient(135deg,#ef4444,#dc2626)':'linear-gradient(135deg,#f59e0b,#d97706)'}}>
+                      <div className="w-8 h-8 rounded text-white flex items-center justify-center font-bold text-xs" style={{background:r.violation_count>=5?'#d9534f':'#f0ad4e'}}>
                         {r.violation_count}
                       </div>
-                      <div><p className="text-white font-semibold">{r.users?.nama||'-'}</p><p className="text-[var(--admin-text-secondary)] text-xs font-medium">{r.users?.kelas||'-'} • {r.users?.username}</p></div>
+                      <div>
+                        <p className="text-[#333] font-bold">{r.users?.nama||'-'}</p>
+                        <p className="text-[#6c757d] text-xs">{r.users?.kelas||'-'} • {r.users?.username}</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {r.auto_submitted&&<span className="text-xs px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 font-bold">AUTO-SUBMIT</span>}
-                      <svg className={`w-5 h-5 text-[var(--admin-text-secondary)] transition-transform duration-200 ${expandedSession===r.id?'rotate-180':''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+                      {r.auto_submitted && <span className="moodle-badge moodle-badge-danger">AUTO-SUBMIT</span>}
+                      <span className="text-[#0f6cb6] text-xs font-semibold">{expandedSession===r.id ? 'Sembunyikan' : 'Lihat Detail'}</span>
                     </div>
                   </div>
-                  {expandedSession===r.id&&r.violations&&(
-                    <div className="border-t px-4 py-3 space-y-2" style={{borderColor:'var(--admin-border)',background:'var(--admin-bg)'}}>
-                      {r.violations.map((v,i)=>{
-                        const info=violationTypeLabels[v.violation_type]||{label:v.violation_type,icon:'⚠️',severity:'low'};
-                        return (
-                          <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl border text-xs ${getSeverityColor(info.severity)}`}>
-                            <span>{info.icon}</span><span className="font-semibold">{info.label}</span>
-                            <span className="text-[var(--admin-text-secondary)] flex-1">{v.description}</span>
-                            <span className="text-[var(--admin-text-secondary)]">{new Date(v.created_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta'})}</span>
-                          </div>
-                        );
-                      })}
+                  {expandedSession===r.id && r.violations && (
+                    <div className="border-t p-4 bg-[#f9f9f9]">
+                      <table className="moodle-table">
+                        <thead>
+                          <tr>
+                            <th>Tipe Pelanggaran</th>
+                            <th>Deskripsi</th>
+                            <th>Waktu</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.violations.map((v,i)=>{
+                            const info=violationTypeLabels[v.violation_type]||{label:v.violation_type,icon:'⚠️',severity:'low'};
+                            return (
+                              <tr key={i} className={getSeverityColor(info.severity)}>
+                                <td className="font-semibold">
+                                  {info.icon} {info.label}
+                                </td>
+                                <td>{v.description}</td>
+                                <td className="text-xs">{new Date(v.created_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta'})}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
