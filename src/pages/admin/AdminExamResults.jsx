@@ -147,7 +147,7 @@ export default function AdminExamResults() {
                       <span className="text-xs text-gray-500">0</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{r.finished_at ? new Date(r.finished_at).toLocaleString('id-ID') : '-'}</td>
+                  <td className="px-4 py-3 text-gray-400 text-xs">{r.finished_at ? new Date(r.finished_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-'}</td>
                 </tr>
               ))}
             </tbody>

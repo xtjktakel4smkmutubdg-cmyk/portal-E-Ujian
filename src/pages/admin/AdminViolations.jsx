@@ -134,7 +134,7 @@ export default function AdminViolations() {
                             <span>{info.icon}</span>
                             <span className="font-medium">{info.label}</span>
                             <span className="text-gray-500 flex-1">{v.description}</span>
-                            <span className="text-gray-500">{new Date(v.created_at).toLocaleTimeString('id-ID')}</span>
+                            <span className="text-gray-500">{new Date(v.created_at).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
                           </div>
                         );
                       })}

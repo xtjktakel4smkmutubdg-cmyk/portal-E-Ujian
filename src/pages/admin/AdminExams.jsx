@@ -22,6 +22,11 @@ export default function AdminExams() {
   const token = getToken();
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
+  const toJakartaISO = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).replace(' ', 'T').slice(0, 16);
+  };
+
   useEffect(() => { fetchExams(); }, []);
 
   const fetchExams = async () => {
@@ -37,8 +42,8 @@ export default function AdminExams() {
     const later = new Date(now.getTime() + 3600000);
     setForm({
       title: '', description: '', mata_pelajaran: '', durasi: 60,
-      tanggal_mulai: now.toISOString().slice(0, 16),
-      tanggal_selesai: later.toISOString().slice(0, 16),
+      tanggal_mulai: toJakartaISO(now),
+      tanggal_selesai: toJakartaISO(later),
       show_result_to_student: false, shuffle_questions: true, shuffle_options: true,
       max_attempts: 1, passing_grade: 0
     });
@@ -49,8 +54,8 @@ export default function AdminExams() {
     setEditExam(exam);
     setForm({
       title: exam.title, description: exam.description || '', mata_pelajaran: exam.mata_pelajaran || '',
-      durasi: exam.durasi, tanggal_mulai: new Date(exam.tanggal_mulai).toISOString().slice(0, 16),
-      tanggal_selesai: new Date(exam.tanggal_selesai).toISOString().slice(0, 16),
+      durasi: exam.durasi, tanggal_mulai: toJakartaISO(exam.tanggal_mulai),
+      tanggal_selesai: toJakartaISO(exam.tanggal_selesai),
       show_result_to_student: exam.show_result_to_student, shuffle_questions: exam.shuffle_questions,
       shuffle_options: exam.shuffle_options, max_attempts: exam.max_attempts, passing_grade: exam.passing_grade || 0
     });
@@ -61,7 +66,10 @@ export default function AdminExams() {
     e.preventDefault();
     const url = editExam ? `/api/exams/${editExam.id}` : '/api/exams';
     const method = editExam ? 'PUT' : 'POST';
-    const payload = { ...form, tanggal_mulai: new Date(form.tanggal_mulai).toISOString(), tanggal_selesai: new Date(form.tanggal_selesai).toISOString() };
+    // Force inputs to be parsed as GMT+7 before converting to UTC for the database
+    const t_mulai = new Date(form.tanggal_mulai + '+07:00').toISOString();
+    const t_selesai = new Date(form.tanggal_selesai + '+07:00').toISOString();
+    const payload = { ...form, tanggal_mulai: t_mulai, tanggal_selesai: t_selesai };
     try {
       const res = await fetch(url, { method, headers, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error('Gagal menyimpan');
@@ -151,7 +159,7 @@ export default function AdminExams() {
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
                     <span>📚 {exam.mata_pelajaran || '-'}</span>
                     <span>⏱ {exam.durasi} menit</span>
-                    <span>📅 {new Date(exam.tanggal_mulai).toLocaleDateString('id-ID')}</span>
+                    <span>📅 {new Date(exam.tanggal_mulai).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
                     <span>📊 Submissions: {exam.total_submissions || 0}</span>
                   </div>
                 </div>

@@ -242,8 +242,8 @@ export default function TakeExam() {
               {[
                 { label: 'Durasi', value: `${exam.durasi} menit`, icon: '⏱' },
                 { label: 'Percobaan', value: `Max ${exam.max_attempts}x`, icon: '🔄' },
-                { label: 'Mulai', value: mulai.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }), icon: '📅' },
-                { label: 'Berakhir', value: selesai.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }), icon: '🏁' },
+                { label: 'Mulai', value: mulai.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' }), icon: '📅' },
+                { label: 'Berakhir', value: selesai.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' }), icon: '🏁' },
                 { label: 'Passing Grade', value: `${exam.passing_grade || 0}%`, icon: '🎯' },
                 { label: 'Soal Diacak', value: exam.shuffle_questions ? 'Ya' : 'Tidak', icon: '🔀' },
               ].map((item, i) => (
@@ -270,7 +270,7 @@ export default function TakeExam() {
             {!canStart && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
                 <p className="text-red-600 font-medium text-sm">
-                  {now < mulai ? `Ujian belum dimulai. Mulai pada ${mulai.toLocaleString('id-ID')}` : 'Ujian sudah berakhir'}
+                  {now < mulai ? `Ujian belum dimulai. Mulai pada ${mulai.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}` : 'Ujian sudah berakhir'}
                 </p>
               </div>
             )}

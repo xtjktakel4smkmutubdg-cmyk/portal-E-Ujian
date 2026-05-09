@@ -40,7 +40,7 @@ export default function Dashboard() {
     return { label: 'Tersedia', color: 'bg-emerald-100 text-emerald-700', canTake: true };
   };
 
-  const formatDate = (d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const formatDate = (d) => new Date(d).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   const getTimeRemaining = (dateStr) => {
     const diff = new Date(dateStr) - new Date();

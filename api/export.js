@@ -70,7 +70,7 @@ router.get('/exam/:examId/excel', authenticateToken, requireAdmin, async (req, r
         s.is_passed ? 'LULUS' : 'TIDAK LULUS',
         Math.round((s.time_spent_seconds || 0) / 60),
         s.violation_count || 0,
-        s.finished_at ? new Date(s.finished_at).toLocaleString('id-ID') : '-'
+        s.finished_at ? new Date(s.finished_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-'
       ]);
 
       row.eachCell(cell => {
@@ -149,7 +149,7 @@ router.get('/exam/:examId/pdf', authenticateToken, requireAdmin, async (req, res
     doc.fontSize(10).font('Helvetica')
       .text(`Mata Pelajaran: ${exam.mata_pelajaran || '-'} | Durasi: ${exam.durasi} menit | Passing Grade: ${exam.passing_grade}%`, { align: 'center' });
     doc.moveDown(0.3);
-    doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, { align: 'center' });
+    doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`, { align: 'center' });
     doc.moveDown(1);
 
     // Table header
