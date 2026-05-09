@@ -158,27 +158,37 @@ export default function Dashboard() {
                       </div>
 
                       {bestScore > 0 && exam.show_result_to_student && (
-                        <div className="mb-4 bg-[#f9f9f9] p-3 rounded border">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs font-bold text-[#333]">Nilai Tertinggi</span>
-                            <span className="text-xs font-bold" style={{ color: bestScore >= (exam.passing_grade || 0) ? '#5cb85c' : '#d9534f' }}>
-                              {bestScore.toFixed(0)}%
-                            </span>
+                        <div className="mb-4 bg-[#f9f9f9] p-3 rounded border flex items-center justify-between">
+                          <div className="flex-1 mr-4">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-xs font-bold text-[#333]">Nilai Tertinggi</span>
+                              <span className="text-xs font-bold" style={{ color: bestScore >= (exam.passing_grade || 0) ? '#5cb85c' : '#d9534f' }}>
+                                {bestScore.toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-[#e9ecef] rounded-full h-2">
+                              <div className="h-2 rounded-full" style={{ width: `${bestScore}%`, background: bestScore >= (exam.passing_grade || 0) ? '#5cb85c' : '#d9534f' }}></div>
+                            </div>
                           </div>
-                          <div className="w-full bg-[#e9ecef] rounded-full h-2">
-                            <div className="h-2 rounded-full" style={{ width: `${bestScore}%`, background: bestScore >= (exam.passing_grade || 0) ? '#5cb85c' : '#d9534f' }}></div>
-                          </div>
+                          <Link to={`/take-exam/${exam.id}`} className="moodle-btn moodle-btn-secondary text-xs px-2 py-1">
+                            🔍 Review
+                          </Link>
                         </div>
                       )}
 
-                      <div className="mt-auto border-t pt-3" style={{ borderColor: '#dee2e6' }}>
+                      <div className="mt-auto border-t pt-3 flex gap-2" style={{ borderColor: '#dee2e6' }}>
+                        {exam.study_material_url && (
+                          <a href={exam.study_material_url} target="_blank" rel="noopener noreferrer" className="moodle-btn moodle-btn-info w-full text-center block">
+                            📚 Materi
+                          </a>
+                        )}
                         {status.canTake ? (
                           <Link to={`/take-exam/${exam.id}`} className="moodle-btn moodle-btn-primary w-full text-center block">
                             Mulai Ujian
                           </Link>
                         ) : (
                           <button disabled className="moodle-btn moodle-btn-secondary w-full opacity-50 cursor-not-allowed">
-                            {new Date(exam.tanggal_mulai) > new Date() ? 'Ujian Belum Tersedia' : 'Ujian Telah Berakhir'}
+                            {new Date(exam.tanggal_mulai) > new Date() ? 'Belum Tersedia' : 'Berakhir'}
                           </button>
                         )}
                       </div>

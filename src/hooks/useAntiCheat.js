@@ -7,8 +7,21 @@ export function useAntiCheat(sessionId, token, isActive = false) {
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const violationCountRef = useRef(0);
 
+  const stopAntiCheat = useCallback(() => {
+    setAutoSubmitted(true); // just a flag to stop further things if we want, or better:
+  }, []);
+
+  // Let's actually just use an internal state or ref to ignore violations
+  const isPausedRef = useRef(false);
+  const pauseAntiCheat = useCallback(() => {
+    isPausedRef.current = true;
+  }, []);
+  const resumeAntiCheat = useCallback(() => {
+    isPausedRef.current = false;
+  }, []);
+
   const recordViolation = useCallback(async (type, description) => {
-    if (!sessionId || !token || !isActive) return;
+    if (!sessionId || !token || !isActive || isPausedRef.current) return;
 
     try {
       const res = await fetch(`/api/sessions/${sessionId}/violation`, {
@@ -156,7 +169,7 @@ export function useAntiCheat(sessionId, token, isActive = false) {
     };
   }, [isActive, recordViolation]);
 
-  return { violationCount, showWarning, warningMessage, autoSubmitted, dismissWarning: () => setShowWarning(false) };
+  return { violationCount, showWarning, warningMessage, autoSubmitted, dismissWarning: () => setShowWarning(false), pauseAntiCheat, resumeAntiCheat };
 }
 
 export function requestFullscreen() {

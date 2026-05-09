@@ -20,7 +20,7 @@ export default function AdminExams() {
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiImportText, setAiImportText] = useState('');
 
-  const [form, setForm] = useState({ title:'', description:'', mata_pelajaran:'', durasi:60, tanggal_mulai:'', tanggal_selesai:'', show_result_to_student:false, shuffle_questions:true, shuffle_options:true, max_attempts:1, passing_grade:0 });
+  const [form, setForm] = useState({ title:'', description:'', mata_pelajaran:'', durasi:60, tanggal_mulai:'', tanggal_selesai:'', show_result_to_student:false, shuffle_questions:true, shuffle_options:true, max_attempts:1, passing_grade:0, study_material_url:'' });
   const [qForm, setQForm] = useState({ question_text:'', option_a:'', option_b:'', option_c:'', option_d:'', option_e:'', correct_answer:'A', tipe:'mcq', bobot:1 });
 
   const token = getToken();
@@ -30,8 +30,8 @@ export default function AdminExams() {
   useEffect(() => { fetchExams(); }, []);
   const fetchExams = async () => { try { const r = await fetch('/api/exams',{headers:{'Authorization':`Bearer ${token}`}}); if(r.ok) setExams(await r.json()); } catch(e){console.error(e);} finally{setLoading(false);} };
   
-  const openCreate = () => { setEditExam(null); const n=new Date(); const l=new Date(n.getTime()+3600000); setForm({title:'',description:'',mata_pelajaran:'',durasi:60,tanggal_mulai:toJakartaISO(n),tanggal_selesai:toJakartaISO(l),show_result_to_student:false,shuffle_questions:true,shuffle_options:true,max_attempts:1,passing_grade:0}); setShowModal(true); };
-  const openEdit = (exam) => { setEditExam(exam); setForm({title:exam.title,description:exam.description||'',mata_pelajaran:exam.mata_pelajaran||'',durasi:exam.durasi,tanggal_mulai:toJakartaISO(exam.tanggal_mulai),tanggal_selesai:toJakartaISO(exam.tanggal_selesai),show_result_to_student:exam.show_result_to_student,shuffle_questions:exam.shuffle_questions,shuffle_options:exam.shuffle_options,max_attempts:exam.max_attempts,passing_grade:exam.passing_grade||0}); setShowModal(true); };
+  const openCreate = () => { setEditExam(null); const n=new Date(); const l=new Date(n.getTime()+3600000); setForm({title:'',description:'',mata_pelajaran:'',durasi:60,tanggal_mulai:toJakartaISO(n),tanggal_selesai:toJakartaISO(l),show_result_to_student:false,shuffle_questions:true,shuffle_options:true,max_attempts:1,passing_grade:0, study_material_url:''}); setShowModal(true); };
+  const openEdit = (exam) => { setEditExam(exam); setForm({title:exam.title,description:exam.description||'',mata_pelajaran:exam.mata_pelajaran||'',durasi:exam.durasi,tanggal_mulai:toJakartaISO(exam.tanggal_mulai),tanggal_selesai:toJakartaISO(exam.tanggal_selesai),show_result_to_student:exam.show_result_to_student,shuffle_questions:exam.shuffle_questions,shuffle_options:exam.shuffle_options,max_attempts:exam.max_attempts,passing_grade:exam.passing_grade||0, study_material_url:exam.study_material_url||''}); setShowModal(true); };
   
   const handleSaveExam = async (e) => { e.preventDefault(); const url=editExam?`/api/exams/${editExam.id}`:'/api/exams'; const method=editExam?'PUT':'POST'; const t_m=new Date(form.tanggal_mulai+'+07:00').toISOString(); const t_s=new Date(form.tanggal_selesai+'+07:00').toISOString(); try { const r=await fetch(url,{method,headers,body:JSON.stringify({...form,tanggal_mulai:t_m,tanggal_selesai:t_s})}); if(!r.ok) throw new Error('Gagal menyimpan'); await fetchExams(); setShowModal(false); } catch(e){alert(e.message);} };
   const handleDelete = async (id) => { if(!confirm('Hapus ujian ini?')) return; try { await fetch(`/api/exams/${id}`,{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}}); await fetchExams(); } catch(e){alert(e.message);} };
@@ -203,6 +203,10 @@ Contoh Format:
                 <div>
                   <label className="moodle-label">Mata Pelajaran</label>
                   <input className="moodle-input" value={form.mata_pelajaran} onChange={e=>setForm({...form,mata_pelajaran:e.target.value})} placeholder="Contoh: Matematika"/>
+                </div>
+                <div>
+                  <label className="moodle-label">Materi Belajar (URL PDF/Word)</label>
+                  <input className="moodle-input" value={form.study_material_url} onChange={e=>setForm({...form,study_material_url:e.target.value})} placeholder="URL Materi (Google Drive/S3) opsional"/>
                 </div>
                 <div>
                   <label className="moodle-label">Deskripsi</label>

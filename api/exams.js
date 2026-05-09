@@ -79,7 +79,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { title, description, mata_pelajaran, durasi, tanggal_mulai, tanggal_selesai,
-            show_result_to_student, shuffle_questions, shuffle_options, max_attempts, passing_grade } = req.body;
+            show_result_to_student, shuffle_questions, shuffle_options, max_attempts, passing_grade, study_material_url } = req.body;
 
     const { data, error } = await supabase
       .from('exams')
@@ -91,6 +91,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
         shuffle_options: shuffle_options !== false,
         max_attempts: max_attempts || 1,
         passing_grade: passing_grade || 0,
+        study_material_url: study_material_url || null,
         created_by: req.user.id
       }])
       .select()
@@ -116,7 +117,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     const updates = {};
     const fields = ['title', 'description', 'mata_pelajaran', 'durasi', 'tanggal_mulai',
                     'tanggal_selesai', 'is_active', 'show_result_to_student', 'shuffle_questions',
-                    'shuffle_options', 'max_attempts', 'passing_grade'];
+                    'shuffle_options', 'max_attempts', 'passing_grade', 'study_material_url'];
     fields.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
 
     const { data, error } = await supabase

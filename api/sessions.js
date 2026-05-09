@@ -297,7 +297,7 @@ router.get('/exam/:examId/my-results', authenticateToken, requireStudent, async 
     // Get answers
     const { data: answers } = await supabase
       .from('answers')
-      .select('*, questions(question_text, correct_answer, tipe, bobot)')
+      .select('*, questions(question_text, correct_answer, tipe, bobot, option_a, option_b, option_c, option_d, option_e)')
       .eq('session_id', latestSession.id);
 
     res.json({
