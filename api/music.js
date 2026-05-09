@@ -58,38 +58,11 @@ router.get('/tracks', authenticateToken, async (req, res) => {
   }
 });
 
-// Admin uploads track
-const UPLOAD_KEY = "AIzaBj7z2z3xBjsk";
-const UPLOAD_DOMAIN = 'https://c.termai.cc';
-
-router.post('/upload', authenticateToken, requireAdmin, upload.single('file'), async (req, res) => {
+// Admin saves track (bypassing Vercel limits by uploading from client)
+router.post('/save-track', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'File wajib diupload' });
-    const { title } = req.body;
-    if (!title) return res.status(400).json({ error: 'Judul wajib diisi' });
-
-    let ext = 'mp3';
-    try {
-      const typeInfo = await fileTypeFromBuffer(req.file.buffer);
-      if (typeInfo && typeInfo.ext) ext = typeInfo.ext;
-    } catch (e) {
-      console.warn('Could not determine file type:', e);
-    }
-
-    const formData = new Form();
-    formData.append('file', req.file.buffer, { filename: 'file.' + ext });
-
-    const response = await axios.post(`${UPLOAD_DOMAIN}/api/upload?key=${UPLOAD_KEY}`, formData, {
-      headers: {
-        ...formData.getHeaders()
-      },
-    });
-
-    if (!response.data || !response.data.status) {
-       throw new Error('Gagal mengupload ke server storage');
-    }
-
-    const audio_url = response.data.path;
+    const { title, audio_url } = req.body;
+    if (!title || !audio_url) return res.status(400).json({ error: 'Judul dan URL wajib diisi' });
 
     const { data, error } = await supabase
       .from('music_tracks')
@@ -98,11 +71,9 @@ router.post('/upload', authenticateToken, requireAdmin, upload.single('file'), a
       .single();
 
     if (error) throw error;
-
     res.json(data);
   } catch (error) {
-    console.error('Error upload:', error.response?.data || error.message);
-    res.status(500).json({ error: error.response?.data || error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 

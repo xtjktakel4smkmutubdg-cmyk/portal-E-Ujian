@@ -45,17 +45,36 @@ export default function ManageMusic() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('title', newTrackTitle);
 
-      const res = await fetch('/api/music/upload', {
+      // Upload directly to external API to bypass Vercel payload limits
+      const uploadRes = await fetch('https://c.termai.cc/api/upload?key=AIzaBj7z2z3xBjsk', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${getToken()}` },
         body: formData
+      });
+
+      if (!uploadRes.ok) throw new Error('Gagal mengupload ke server storage');
+      const uploadData = await uploadRes.json();
+      
+      if (!uploadData || !uploadData.status || !uploadData.path) {
+        throw new Error('Gagal mendapatkan URL audio');
+      }
+
+      // Save to database via our backend
+      const res = await fetch('/api/music/save-track', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: newTrackTitle,
+          audio_url: uploadData.path
+        })
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Upload gagal');
+        throw new Error(data.error || 'Gagal menyimpan data musik');
       }
 
       setNewTrackTitle('');
