@@ -19,6 +19,7 @@ export default function TakeExam() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [examInfo, setExamInfo] = useState(null);
+  const [doubtful, setDoubtful] = useState({});
   const timerRef = useRef(null);
   const token = getToken();
   const { violationCount, showWarning, warningMessage, autoSubmitted, dismissWarning, pauseAntiCheat, resumeAntiCheat } = useAntiCheat(sessionId, token, phase === 'exam');
@@ -297,9 +298,10 @@ export default function TakeExam() {
   const answeredCount = Object.keys(answers).filter(k => questions.some(q => q.id === k)).length;
   const isUrgent = remainingSeconds <= 300;
   
-  const [doubtful, setDoubtful] = useState({});
   const toggleDoubtful = () => {
-    setDoubtful(prev => ({ ...prev, [currentQ.id]: !prev[currentQ.id] }));
+    if (currentQ) {
+      setDoubtful(prev => ({ ...prev, [currentQ.id]: !prev[currentQ.id] }));
+    }
   };
 
   const handleDownloadPDF = () => {
