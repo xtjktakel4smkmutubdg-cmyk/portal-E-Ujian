@@ -20,6 +20,9 @@ export default function TakeExam() {
   const [result, setResult] = useState(null);
   const [examInfo, setExamInfo] = useState(null);
   const [doubtful, setDoubtful] = useState({});
+  const [tracks, setTracks] = useState([]);
+  const [currentTrackIdx, setCurrentTrackIdx] = useState(0);
+  const audioRef = useRef(null);
   const timerRef = useRef(null);
   const token = getToken();
   const { violationCount, showWarning, warningMessage, autoSubmitted, dismissWarning, pauseAntiCheat, resumeAntiCheat } = useAntiCheat(sessionId, token, phase === 'exam');
@@ -32,6 +35,13 @@ export default function TakeExam() {
         setExam(await res.json());
         const resR = await fetch(`/api/sessions/exam/${id}/my-results`, { headers: { 'Authorization': `Bearer ${token}` } });
         if (resR.ok) { const rd = await resR.json(); if (rd.has_result) setResult(rd); }
+
+        // Fetch music tracks
+        const musicRes = await fetch('/api/music/tracks', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (musicRes.ok) {
+          const trackData = await musicRes.json();
+          setTracks(trackData);
+        }
       } catch (err) { setError(err.message); } finally { setLoading(false); }
     };
     fetchExam();
@@ -44,6 +54,13 @@ export default function TakeExam() {
     }, 1000);
     return () => clearInterval(timerRef.current);
   }, [phase]);
+
+  // Handle auto-play music
+  useEffect(() => {
+    if (phase === 'exam' && audioRef.current && tracks.length > 0) {
+      audioRef.current.play().catch(e => console.log('Autoplay blocked:', e));
+    }
+  }, [phase, currentTrackIdx, tracks.length]);
 
   useEffect(() => { if (autoSubmitted) { clearInterval(timerRef.current); setPhase('result'); setTimeout(() => navigate('/'), 10000); } }, [autoSubmitted]);
 
@@ -308,6 +325,28 @@ export default function TakeExam() {
     window.print();
   };
 
+  const handleTrackEnded = () => {
+    if (tracks.length > 0) {
+      setCurrentTrackIdx((prev) => (prev + 1) % tracks.length);
+    }
+  };
+
+  const moveTrack = (index, direction) => {
+    if ((direction === -1 && index === 0) || (direction === 1 && index === tracks.length - 1)) return;
+    const newTracks = [...tracks];
+    const temp = newTracks[index];
+    newTracks[index] = newTracks[index + direction];
+    newTracks[index + direction] = temp;
+    
+    // Update currentTrackIdx if the currently playing track moved
+    if (currentTrackIdx === index) {
+      setCurrentTrackIdx(index + direction);
+    } else if (currentTrackIdx === index + direction) {
+      setCurrentTrackIdx(index);
+    }
+    setTracks(newTracks);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f5f5f5]">
       {showWarning && (
@@ -417,7 +456,48 @@ export default function TakeExam() {
         </div>
 
         {/* Sidebar Navigation */}
-        <div className="w-full lg:w-80 shrink-0">
+        <div className="w-full lg:w-80 shrink-0 space-y-6">
+          
+          {/* Music Player */}
+          {tracks.length > 0 && (
+            <div className="card-admin">
+              <div className="px-4 py-3 border-b bg-[#f9f9f9]" style={{ borderColor: '#dee2e6' }}>
+                <h3 className="font-bold text-[#333] flex items-center gap-2">🎵 Pemutar Musik</h3>
+              </div>
+              <div className="p-4">
+                <div className="mb-4">
+                  <p className="text-xs text-[#6c757d] font-bold mb-1">Sedang Diputar:</p>
+                  <p className="text-sm font-semibold text-[#0f6cb6] truncate">{tracks[currentTrackIdx]?.title}</p>
+                </div>
+                
+                <audio 
+                  ref={audioRef}
+                  src={tracks[currentTrackIdx]?.audio_url} 
+                  controls 
+                  className="w-full h-8 mb-4"
+                  onEnded={handleTrackEnded}
+                ></audio>
+
+                <div className="border-t pt-3" style={{ borderColor: '#dee2e6' }}>
+                  <p className="text-xs font-bold text-[#333] mb-2">Playlist (Bisa Diatur)</p>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {tracks.map((track, idx) => (
+                      <div key={track.id} className={`flex items-center justify-between p-2 rounded text-xs border ${idx === currentTrackIdx ? 'bg-[#e9f2f9] border-[#0f6cb6]' : 'bg-white border-[#dee2e6]'}`}>
+                        <div className="truncate flex-1 font-medium text-[#333] cursor-pointer" onClick={() => setCurrentTrackIdx(idx)}>
+                          {idx + 1}. {track.title}
+                        </div>
+                        <div className="flex flex-col gap-1 ml-2">
+                          <button onClick={() => moveTrack(idx, -1)} disabled={idx === 0} className="text-gray-400 hover:text-black disabled:opacity-30">▲</button>
+                          <button onClick={() => moveTrack(idx, 1)} disabled={idx === tracks.length - 1} className="text-gray-400 hover:text-black disabled:opacity-30">▼</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="card-admin lg:sticky lg:top-20">
             <div className="px-4 py-3 border-b bg-[#f9f9f9]" style={{ borderColor: '#dee2e6' }}>
               <h3 className="font-bold text-[#333]">Tab Soal (Navigasi)</h3>

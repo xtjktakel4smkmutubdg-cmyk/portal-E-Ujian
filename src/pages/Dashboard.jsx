@@ -6,6 +6,9 @@ export default function Dashboard() {
   const { user, logout, getToken } = useAuth();
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showMusicModal, setShowMusicModal] = useState(false);
+  const [songTitle, setSongTitle] = useState('');
+  const [submittingMusic, setSubmittingMusic] = useState(false);
 
   useEffect(() => {
     fetchExams();
@@ -61,6 +64,34 @@ export default function Dashboard() {
     </div>
   );
 
+  const handleMusicRequest = async (e) => {
+    e.preventDefault();
+    if (!songTitle.trim()) return;
+    setSubmittingMusic(true);
+    try {
+      const res = await fetch('/api/music/request', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ song_title: songTitle })
+      });
+      if (res.ok) {
+        alert('Request lagu berhasil dikirim!');
+        setSongTitle('');
+        setShowMusicModal(false);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Gagal mengirim request');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan');
+    } finally {
+      setSubmittingMusic(false);
+    }
+  };
+
   const stats = [
     { label: 'Total Ujian', value: exams.length, color: '#0f6cb6', icon: '📝' },
     { label: 'Tersedia', value: exams.filter(e => getExamStatus(e).canTake).length, color: '#5cb85c', icon: '✅' },
@@ -101,9 +132,17 @@ export default function Dashboard() {
         </div>
 
         {/* Welcome */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#333]">Selamat Datang, {user?.nama}! 👋</h1>
-          <p className="text-[#6c757d] mt-1 text-sm">Berikut daftar ujian yang tersedia untuk Anda</p>
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-[#333]">Selamat Datang, {user?.nama}! 👋</h1>
+            <p className="text-[#6c757d] mt-1 text-sm">Berikut daftar ujian yang tersedia untuk Anda</p>
+          </div>
+          <button 
+            onClick={() => setShowMusicModal(true)} 
+            className="moodle-btn moodle-btn-info flex items-center gap-2"
+          >
+            🎵 Request Lagu
+          </button>
         </div>
 
         {/* Stats cards */}
@@ -201,6 +240,36 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {showMusicModal && (
+        <div className="moodle-modal-overlay z-[100]">
+          <div className="moodle-modal">
+            <div className="moodle-modal-header bg-[#f8f9fa] border-b">
+              <h2 className="font-bold text-[#333] flex items-center gap-2">🎵 Request Lagu Ujian</h2>
+            </div>
+            <form onSubmit={handleMusicRequest} className="p-6">
+              <p className="text-sm text-[#6c757d] mb-4">Request lagu favoritmu untuk didengarkan saat ujian berlangsung.</p>
+              <div className="mb-4">
+                <label className="block text-sm font-bold text-[#333] mb-1">Judul Lagu & Penyanyi</label>
+                <input 
+                  type="text" 
+                  value={songTitle}
+                  onChange={(e) => setSongTitle(e.target.value)}
+                  placeholder="Contoh: Numb - Linkin Park"
+                  className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-[#0f6cb6]"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button type="button" onClick={() => setShowMusicModal(false)} className="moodle-btn moodle-btn-secondary">Batal</button>
+                <button type="submit" disabled={submittingMusic} className="moodle-btn moodle-btn-primary">
+                  {submittingMusic ? 'Mengirim...' : 'Kirim Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

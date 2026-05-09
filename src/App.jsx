@@ -15,6 +15,7 @@ const AdminExams = lazy(() => import('./pages/admin/AdminExams'));
 const AdminExamResults = lazy(() => import('./pages/admin/AdminExamResults'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminViolations = lazy(() => import('./pages/admin/AdminViolations'));
+const ManageMusic = lazy(() => import('./pages/admin/ManageMusic'));
 
 const LoadingScreen = () => (
   <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
@@ -60,6 +61,7 @@ function AppRoutes() {
                 <Route path="exams/:id/results" element={<AdminExamResults />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="violations" element={<AdminViolations />} />
+                <Route path="music" element={<ManageMusic />} />
                 <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
               </Routes>
             </AdminLayout>

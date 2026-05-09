@@ -7,6 +7,7 @@ const navItems = [
   { path: '/admin/exams', label: 'Manajemen Ujian', icon: '📝' },
   { path: '/admin/users', label: 'Manajemen Pengguna', icon: '👥' },
   { path: '/admin/violations', label: 'Monitor Kecurangan', icon: '⚠️' },
+  { path: '/admin/music', label: 'Manajemen Musik', icon: '🎵' },
 ];
 
 export default function AdminLayout({ children }) {

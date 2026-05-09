@@ -7,6 +7,7 @@ import usersRoutes from './users.js';
 import examsRoutes from './exams.js';
 import sessionsRoutes from './sessions.js';
 import exportRoutes from './export.js';
+import musicRoutes from './music.js';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(express.json({ limit: '10mb' }));
 // Routes — Student
 app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionsRoutes);
+app.use('/api/music', musicRoutes);
 
 // Routes — Admin
 app.use('/api/admin/auth', adminAuthRoutes);
