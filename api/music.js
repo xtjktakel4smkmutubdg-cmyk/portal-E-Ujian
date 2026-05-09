@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabase } from './db.js';
-import { requireAuth, requireAdmin } from './middleware.js';
+import { authenticateToken, requireAdmin } from './middleware.js';
 import axios from 'axios';
 import Form from 'form-data';
 import multer from 'multer';
@@ -10,7 +10,7 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Student requests a song
-router.post('/request', requireAuth, async (req, res) => {
+router.post('/request', authenticateToken, async (req, res) => {
   try {
     const { song_title } = req.body;
     if (!song_title) return res.status(400).json({ error: 'Judul lagu wajib diisi' });
@@ -29,7 +29,7 @@ router.post('/request', requireAuth, async (req, res) => {
 });
 
 // Admin lists requests
-router.get('/requests', requireAuth, requireAdmin, async (req, res) => {
+router.get('/requests', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('music_requests')
@@ -44,7 +44,7 @@ router.get('/requests', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Everyone lists tracks
-router.get('/tracks', requireAuth, async (req, res) => {
+router.get('/tracks', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('music_tracks')
@@ -62,7 +62,7 @@ router.get('/tracks', requireAuth, async (req, res) => {
 const UPLOAD_KEY = "AIzaBj7z2z3xBjsk";
 const UPLOAD_DOMAIN = 'https://c.termai.cc';
 
-router.post('/upload', requireAuth, requireAdmin, upload.single('file'), async (req, res) => {
+router.post('/upload', authenticateToken, requireAdmin, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'File wajib diupload' });
     const { title } = req.body;
@@ -106,7 +106,7 @@ router.post('/upload', requireAuth, requireAdmin, upload.single('file'), async (
   }
 });
 
-router.delete('/tracks/:id', requireAuth, requireAdmin, async (req, res) => {
+router.delete('/tracks/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { error } = await supabase.from('music_tracks').delete().eq('id', req.params.id);
     if (error) throw error;
@@ -116,7 +116,7 @@ router.delete('/tracks/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/requests/:id', requireAuth, requireAdmin, async (req, res) => {
+router.delete('/requests/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { error } = await supabase.from('music_requests').delete().eq('id', req.params.id);
     if (error) throw error;
@@ -127,7 +127,7 @@ router.delete('/requests/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Admin approves/rejects request
-router.put('/requests/:id', requireAuth, requireAdmin, async (req, res) => {
+router.put('/requests/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { status } = req.body; // 'approved' or 'rejected'
     const { error } = await supabase.from('music_requests').update({ status }).eq('id', req.params.id);
