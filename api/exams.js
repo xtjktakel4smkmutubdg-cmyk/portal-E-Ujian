@@ -1,147 +1,256 @@
 import express from 'express';
 import { supabase } from './db.js';
-import { authenticateToken, requireRole } from './middleware.js';
+import { authenticateToken, requireAdmin } from './middleware.js';
 
 const router = express.Router();
 
-// Get all exams
+// Get all exams (admin gets all, student gets active + in schedule)
 router.get('/', authenticateToken, async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('exams')
-            .select('*')
-            .order('tanggal', { ascending: false });
+  try {
+    let query = supabase.from('exams').select('*').order('tanggal_mulai', { ascending: false });
 
-        if (error) throw error;
-        res.json(data);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (req.user.role === 'siswa') {
+      query = query.eq('is_active', true);
     }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // For students, also fetch their sessions to show status
+    if (req.user.role === 'siswa' && data.length > 0) {
+      const { data: sessions } = await supabase
+        .from('exam_sessions')
+        .select('exam_id, is_submitted, total_score, percentage, is_passed')
+        .eq('user_id', req.user.id);
+
+      const sessionMap = {};
+      (sessions || []).forEach(s => {
+        if (!sessionMap[s.exam_id]) sessionMap[s.exam_id] = [];
+        sessionMap[s.exam_id].push(s);
+      });
+
+      data.forEach(exam => {
+        exam.my_sessions = sessionMap[exam.id] || [];
+      });
+    }
+
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Get single exam details (with questions for admin)
+// Get single exam
 router.get('/:id', authenticateToken, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { data: exam, error: examError } = await supabase
-            .from('exams')
-            .select('*')
-            .eq('id', id)
-            .single();
+  try {
+    const { id } = req.params;
+    const { data: exam, error } = await supabase
+      .from('exams')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-        if (examError) throw examError;
+    if (error) throw error;
 
-        let response = { ...exam };
+    if (req.user.role === 'admin') {
+      const { data: questions } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('exam_id', id)
+        .order('nomor_urut', { ascending: true });
+      exam.questions = questions || [];
 
-        if (req.user.role === 'admin') {
-            const { data: questions, error: qError } = await supabase
-                .from('questions')
-                .select('*')
-                .eq('exam_id', id);
-
-            if (!qError) {
-                response.questions = questions;
-            }
-        }
-
-        res.json(response);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+      // Count sessions
+      const { count } = await supabase
+        .from('exam_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('exam_id', id)
+        .eq('is_submitted', true);
+      exam.total_submissions = count || 0;
     }
+
+    res.json(exam);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Create new exam (Admin only)
-router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => {
-    try {
-        const { title, durasi, tanggal } = req.body;
+// Create exam (Admin)
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { title, description, mata_pelajaran, durasi, tanggal_mulai, tanggal_selesai,
+            show_result_to_student, shuffle_questions, shuffle_options, max_attempts, passing_grade } = req.body;
 
-        const { data, error } = await supabase
-            .from('exams')
-            .insert([{ title, durasi, tanggal }])
-            .select()
-            .single();
+    const { data, error } = await supabase
+      .from('exams')
+      .insert([{
+        title, description, mata_pelajaran, durasi,
+        tanggal_mulai, tanggal_selesai,
+        show_result_to_student: show_result_to_student || false,
+        shuffle_questions: shuffle_questions !== false,
+        shuffle_options: shuffle_options !== false,
+        max_attempts: max_attempts || 1,
+        passing_grade: passing_grade || 0,
+        created_by: req.user.id
+      }])
+      .select()
+      .single();
 
-        if (error) throw error;
-        res.status(201).json(data);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    if (error) throw error;
+
+    await supabase.from('admin_activity_log').insert([{
+      admin_id: req.user.id, action: 'CREATE_EXAM',
+      details: { exam_id: data.id, title }
+    }]);
+
+    res.status(201).json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Update exam (Admin only)
-router.put('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { title, durasi, tanggal } = req.body;
+// Update exam (Admin)
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = {};
+    const fields = ['title', 'description', 'mata_pelajaran', 'durasi', 'tanggal_mulai',
+                    'tanggal_selesai', 'is_active', 'show_result_to_student', 'shuffle_questions',
+                    'shuffle_options', 'max_attempts', 'passing_grade'];
+    fields.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
 
-        const { data, error } = await supabase
-            .from('exams')
-            .update({ title, durasi, tanggal })
-            .eq('id', id)
-            .select()
-            .single();
+    const { data, error } = await supabase
+      .from('exams').update(updates).eq('id', id).select().single();
 
-        if (error) throw error;
-        res.json(data);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Delete exam (Admin only)
-router.delete('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const { error } = await supabase
-            .from('exams')
-            .delete()
-            .eq('id', id);
-
-        if (error) throw error;
-        res.json({ message: 'Exam deleted successfully' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+// Delete exam (Admin)
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase.from('exams').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ message: 'Ujian berhasil dihapus' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Manage questions for exam (Admin only)
-router.post('/:id/questions', authenticateToken, requireRole(['admin']), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const questions = req.body.questions; // Array
+// Add questions (Admin)
+router.post('/:id/questions', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { questions } = req.body;
 
-        const questionsToInsert = questions.map(q => ({
-            exam_id: id,
-            ...q
-        }));
+    // Get current max nomor_urut
+    const { data: existing } = await supabase
+      .from('questions').select('nomor_urut').eq('exam_id', id)
+      .order('nomor_urut', { ascending: false }).limit(1);
 
-        const { data, error } = await supabase
-            .from('questions')
-            .insert(questionsToInsert)
-            .select();
+    let startOrder = (existing && existing.length > 0) ? existing[0].nomor_urut + 1 : 1;
 
-        if (error) throw error;
-        res.status(201).json(data);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    const toInsert = questions.map((q, i) => ({
+      exam_id: id,
+      question_text: q.question_text,
+      option_a: q.option_a || null,
+      option_b: q.option_b || null,
+      option_c: q.option_c || null,
+      option_d: q.option_d || null,
+      option_e: q.option_e || null,
+      correct_answer: q.correct_answer,
+      tipe: q.tipe || 'mcq',
+      bobot: q.bobot || 1,
+      nomor_urut: startOrder + i,
+      image_url: q.image_url || null,
+    }));
+
+    const { data, error } = await supabase.from('questions').insert(toInsert).select();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Delete Question
-router.delete('/questions/:qId', authenticateToken, requireRole(['admin']), async (req, res) => {
-    try {
-        const { qId } = req.params;
-        const { error } = await supabase
-            .from('questions')
-            .delete()
-            .eq('id', qId);
+// Update question (Admin)
+router.put('/questions/:qId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { qId } = req.params;
+    const updates = {};
+    const fields = ['question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e',
+                    'correct_answer', 'tipe', 'bobot', 'nomor_urut', 'image_url'];
+    fields.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
 
-        if (error) throw error;
-        res.json({ message: 'Question deleted' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    const { data, error } = await supabase.from('questions').update(updates).eq('id', qId).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete question (Admin)
+router.delete('/questions/:qId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { qId } = req.params;
+    const { error } = await supabase.from('questions').delete().eq('id', qId);
+    if (error) throw error;
+    res.json({ message: 'Soal berhasil dihapus' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get exam results (Admin)
+router.get('/:id/results', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: sessions, error } = await supabase
+      .from('exam_sessions')
+      .select('*, users(nama, username, kelas, no_peserta)')
+      .eq('exam_id', id)
+      .eq('is_submitted', true)
+      .order('finished_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Get violation counts per session
+    for (let session of sessions) {
+      const { data: violations } = await supabase
+        .from('exam_violations')
+        .select('violation_type, description, created_at')
+        .eq('session_id', session.id)
+        .order('created_at', { ascending: true });
+      session.violations = violations || [];
     }
+
+    res.json(sessions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get detailed answers for a session (Admin)
+router.get('/session/:sessionId/answers', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { data, error } = await supabase
+      .from('answers')
+      .select('*, questions(question_text, option_a, option_b, option_c, option_d, option_e, correct_answer, tipe, bobot)')
+      .eq('session_id', sessionId)
+      .order('answered_at', { ascending: true });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

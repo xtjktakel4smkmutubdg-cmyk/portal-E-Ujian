@@ -6,7 +6,7 @@ import { supabase } from './db.js';
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'portal_ujian_secret_key_123';
 
-// Student Login — only accepts siswa role
+// Admin Login — only accepts admin role
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -19,7 +19,7 @@ router.post('/login', async (req, res) => {
       .from('users')
       .select('*')
       .eq('username', username)
-      .eq('role', 'siswa')
+      .eq('role', 'admin')
       .single();
 
     if (error || !user) {
@@ -27,7 +27,7 @@ router.post('/login', async (req, res) => {
     }
 
     if (!user.is_active) {
-      return res.status(403).json({ error: 'Akun Anda tidak aktif. Hubungi administrator.' });
+      return res.status(403).json({ error: 'Akun admin tidak aktif' });
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
@@ -36,10 +36,17 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role, nama: user.nama, kelas: user.kelas, isAdmin: false },
+      { id: user.id, username: user.username, role: user.role, nama: user.nama, isAdmin: true },
       JWT_SECRET,
-      { expiresIn: '8h' }
+      { expiresIn: '12h' }
     );
+
+    // Log admin login
+    await supabase.from('admin_activity_log').insert([{
+      admin_id: user.id,
+      action: 'LOGIN',
+      details: { ip: req.ip, user_agent: req.headers['user-agent'] }
+    }]);
 
     res.json({
       token,
@@ -47,18 +54,16 @@ router.post('/login', async (req, res) => {
         id: user.id,
         nama: user.nama,
         username: user.username,
-        role: user.role,
-        kelas: user.kelas,
-        no_peserta: user.no_peserta
+        role: user.role
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Admin login error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get current student
+// Get current admin
 router.get('/me', async (req, res) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -68,14 +73,19 @@ router.get('/me', async (req, res) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
 
+    if (!decoded.isAdmin) {
+      return res.status(403).json({ error: 'Not an admin token' });
+    }
+
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, nama, username, role, kelas, no_peserta')
+      .select('id, nama, username, role')
       .eq('id', decoded.id)
+      .eq('role', 'admin')
       .single();
 
     if (error || !user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'Admin not found' });
     }
 
     res.json(user);
