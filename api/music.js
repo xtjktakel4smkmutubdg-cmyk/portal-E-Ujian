@@ -4,7 +4,7 @@ import { requireAuth, requireAdmin } from './middleware.js';
 import axios from 'axios';
 import Form from 'form-data';
 import multer from 'multer';
-import { fromBuffer } from 'file-type';
+import { fileTypeFromBuffer } from 'file-type';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -70,7 +70,7 @@ router.post('/upload', requireAuth, requireAdmin, upload.single('file'), async (
 
     let ext = 'mp3';
     try {
-      const typeInfo = await fromBuffer(req.file.buffer);
+      const typeInfo = await fileTypeFromBuffer(req.file.buffer);
       if (typeInfo && typeInfo.ext) ext = typeInfo.ext;
     } catch (e) {
       console.warn('Could not determine file type:', e);
