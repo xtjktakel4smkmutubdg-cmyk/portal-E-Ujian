@@ -159,7 +159,12 @@ export default function TakeExam() {
                         {ans.is_correct ? 'Benar' : 'Salah'} ({ans.score} poin)
                       </span>
                     </div>
-                    <div className="text-sm text-[#333] mb-4" dangerouslySetInnerHTML={{ __html: ans.questions?.question_text }}></div>
+                    <div className="text-sm text-[#333] mb-4" dangerouslySetInnerHTML={{ __html: ans.questions?.question_text || '' }}></div>
+                    {ans.questions?.image_url && (
+                      <div className="mb-4">
+                        <img src={ans.questions.image_url} alt="Soal" className="max-w-full h-auto rounded border" style={{ borderColor: '#dee2e6' }} />
+                      </div>
+                    )}
                     <div className="text-sm space-y-2">
                       <p><strong>Jawaban Anda:</strong> {ans.answer ? `${ans.answer}. ${ans.questions[`option_${ans.answer.toLowerCase()}`] || ''}` : '-'}</p>
                       {!ans.is_correct && (
@@ -275,6 +280,19 @@ export default function TakeExam() {
   }
 
   // Exam phase
+  if (!questions || questions.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] p-4">
+        <div className="card-admin p-8 max-w-md w-full text-center">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-[#d9534f] mb-2">Soal Belum Tersedia</h2>
+          <p className="text-[#6c757d] mb-6 text-sm">Belum ada soal untuk ujian ini. Silakan hubungi administrator.</p>
+          <button onClick={() => navigate('/')} className="moodle-btn moodle-btn-primary">Kembali ke Dashboard</button>
+        </div>
+      </div>
+    );
+  }
+
   const currentQ = questions[currentIdx];
   const answeredCount = Object.keys(answers).filter(k => questions.some(q => q.id === k)).length;
   const isUrgent = remainingSeconds <= 300;
@@ -344,7 +362,12 @@ export default function TakeExam() {
             </div>
             
             <div className="p-6 bg-white min-h-[400px]">
-              <div className="text-[#333] text-lg leading-relaxed mb-8" dangerouslySetInnerHTML={{ __html: currentQ?.question_text }}></div>
+              <div className="text-[#333] text-lg leading-relaxed mb-8" dangerouslySetInnerHTML={{ __html: currentQ?.question_text || '' }}></div>
+              {currentQ?.image_url && (
+                <div className="mb-8">
+                  <img src={currentQ.image_url} alt="Ilustrasi Soal" className="max-w-full h-auto rounded border" style={{ borderColor: '#dee2e6' }} />
+                </div>
+              )}
               
               <div className="space-y-4">
                 {['a','b','c','d','e'].map(letter => {

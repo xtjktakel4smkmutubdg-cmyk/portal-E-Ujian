@@ -121,7 +121,8 @@ router.get('/:sessionId/questions', authenticateToken, requireStudent, async (re
       questions = shuffleArray(questions);
     }
 
-    // Shuffle options if enabled
+    // Shuffle options if enabled (DISABLED due to scoring mismatch bug)
+    /*
     if (session.exams.shuffle_options) {
       questions = questions.map(q => {
         if (q.tipe !== 'mcq') return q;
@@ -145,6 +146,7 @@ router.get('/:sessionId/questions', authenticateToken, requireStudent, async (re
         return result;
       });
     }
+    */
 
     // Get existing answers
     const { data: existingAnswers } = await supabase
