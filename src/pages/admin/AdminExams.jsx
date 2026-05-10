@@ -106,9 +106,7 @@ export default function AdminExams() {
       question_text: q.question_text || '',
       option_a: q.option_a || '', option_b: q.option_b || '',
       option_c: q.option_c || '', option_d: q.option_d || '',
-      option_e: q.option_e || '', correct_answer: q.correct_answer || 'A',
-      tipe: q.tipe || 'mcq', bobot: q.bobot || 1, image_url: q.image_url || '',
-      correct_answer: q.correct_answer || 'A'
+      option_e: q.option_e || '', correct_answer: q.correct_answer || 'A', tipe: q.tipe || 'mcq', bobot: q.bobot || 1, image_url: q.image_url || ''
     });
     setIsEditingQuestion(true);
     setEditQuestionId(q.id);
