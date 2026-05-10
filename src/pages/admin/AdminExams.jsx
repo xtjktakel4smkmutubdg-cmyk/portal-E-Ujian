@@ -15,13 +15,14 @@ export default function AdminExams() {
   const [questions, setQuestions] = useState([]);
   const [isEditingQuestion, setIsEditingQuestion] = useState(false);
   const [editQuestionId, setEditQuestionId] = useState(null);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   
   // AI Import States
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiImportText, setAiImportText] = useState('');
 
   const [form, setForm] = useState({ title:'', description:'', mata_pelajaran:'', durasi:60, tanggal_mulai:'', tanggal_selesai:'', show_result_to_student:false, shuffle_questions:true, shuffle_options:true, max_attempts:1, passing_grade:0, study_material_url:'' });
-  const [qForm, setQForm] = useState({ question_text:'', option_a:'', option_b:'', option_c:'', option_d:'', option_e:'', correct_answer:'A', tipe:'mcq', bobot:1 });
+  const [qForm, setQForm] = useState({ question_text:'', option_a:'', option_b:'', option_c:'', option_d:'', option_e:'', correct_answer:'A', tipe:'mcq', bobot:1, image_url:'' });
 
   const token = getToken();
   const headers = { 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' };
@@ -44,8 +45,38 @@ export default function AdminExams() {
       const r=await fetch(`/api/exams/${examId}`,{headers:{'Authorization':`Bearer ${token}`}}); 
       if(r.ok){const d=await r.json();setQuestions(d.questions||[]);} 
     } catch(e){console.error(e);} 
-    setQForm({question_text:'',option_a:'',option_b:'',option_c:'',option_d:'',option_e:'',correct_answer:'A',tipe:'mcq',bobot:1}); 
+    setQForm({question_text:'',option_a:'',option_b:'',option_c:'',option_d:'',option_e:'',correct_answer:'A',tipe:'mcq',bobot:1,image_url:''});
     setShowQModal(true); 
+  };
+
+
+  const handleMediaUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadRes = await fetch('https://c.termai.cc/api/upload?key=AIzaBj7z2z3xBjsk', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!uploadRes.ok) throw new Error('Gagal mengupload ke server storage');
+      const uploadData = await uploadRes.json();
+
+      if (!uploadData || !uploadData.status || !uploadData.path) {
+        throw new Error('Gagal mendapatkan URL file');
+      }
+
+      setQForm({ ...qForm, image_url: uploadData.path });
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploadingMedia(false);
+    }
   };
 
   const saveQuestion = async (e) => { 
@@ -64,7 +95,7 @@ export default function AdminExams() {
         const d=await r.json(); 
         setQuestions([...questions,...d]); 
       }
-      setQForm({question_text:'',option_a:'',option_b:'',option_c:'',option_d:'',option_e:'',correct_answer:'A',tipe:'mcq',bobot:1}); 
+      setQForm({question_text:'',option_a:'',option_b:'',option_c:'',option_d:'',option_e:'',correct_answer:'A',tipe:'mcq',bobot:1,image_url:''});
     } catch(e){alert(e.message);} 
   };
 
@@ -76,7 +107,7 @@ export default function AdminExams() {
       option_a: q.option_a || '', option_b: q.option_b || '',
       option_c: q.option_c || '', option_d: q.option_d || '',
       option_e: q.option_e || '', correct_answer: q.correct_answer || 'A',
-      tipe: q.tipe || 'mcq', bobot: q.bobot || 1
+      tipe: q.tipe || 'mcq', bobot: q.bobot || 1, image_url: q.image_url || ''
     });
     setIsEditingQuestion(true);
     setEditQuestionId(q.id);
@@ -86,7 +117,7 @@ export default function AdminExams() {
   const cancelEdit = () => {
     setIsEditingQuestion(false);
     setEditQuestionId(null);
-    setQForm({question_text:'',option_a:'',option_b:'',option_c:'',option_d:'',option_e:'',correct_answer:'A',tipe:'mcq',bobot:1});
+    setQForm({question_text:'',option_a:'',option_b:'',option_c:'',option_d:'',option_e:'',correct_answer:'A',tipe:'mcq',bobot:1,image_url:''});
   };
 
   const handleImportAI = async () => {
@@ -291,6 +322,24 @@ Contoh Format:
                     <label className="moodle-label">Pertanyaan *</label>
                     <textarea required rows="3" className="moodle-input" value={qForm.question_text} onChange={e=>setQForm({...qForm,question_text:e.target.value})} placeholder="Teks soal..."/>
                   </div>
+
+                  <div>
+                    <label className="moodle-label">Lampiran Media (Gambar/Audio/Video)</label>
+                    <input type="file" accept="image/*, audio/*, video/*" onChange={handleMediaUpload} className="moodle-input text-sm" disabled={uploadingMedia} />
+                    {uploadingMedia && <div className="text-sm text-blue-600 mt-1">Mengupload...</div>}
+                    {qForm.image_url && (
+                      <div className="mt-2 text-sm border p-2 bg-white rounded">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-green-600">File terlampir</span>
+                          <button type="button" onClick={() => setQForm({...qForm, image_url: ''})} className="text-red-500 hover:text-red-700 text-xs">Hapus</button>
+                        </div>
+                        <a href={qForm.image_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline break-all">
+                          {qForm.image_url}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
                   
                   {['a','b','c','d','e'].map(l=>(
                     <div key={l}>
@@ -331,8 +380,11 @@ Contoh Format:
                       <div key={q.id} className="border p-4 bg-white shadow-sm">
                         <div className="flex justify-between items-start mb-2">
                           <h4 className="font-bold text-[#333] flex gap-2">
-                            <span className="bg-[#0f6cb6] text-white w-6 h-6 flex items-center justify-center rounded-sm text-xs">{i+1}</span>
-                            <span dangerouslySetInnerHTML={{__html:q.question_text}}></span>
+                                                        <span className="bg-[#0f6cb6] text-white w-6 h-6 flex items-center justify-center rounded-sm text-xs">{i+1}</span>
+                            <span>
+                              <span dangerouslySetInnerHTML={{__html:q.question_text}}></span>
+                              {q.image_url && <span className="ml-2 text-xs bg-gray-200 text-gray-700 px-1 py-0.5 rounded">[Ada Lampiran]</span>}
+                            </span>
                           </h4>
                           <div className="flex gap-1 ml-2">
                             <button onClick={()=>editQuestionClick(q)} className="text-[#0f6cb6] hover:underline text-xs">Edit</button>

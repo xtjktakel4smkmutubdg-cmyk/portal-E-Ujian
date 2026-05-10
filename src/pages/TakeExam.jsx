@@ -75,6 +75,35 @@ export default function TakeExam() {
 
   useEffect(() => { if (autoSubmitted) { clearInterval(timerRef.current); setPhase('result'); setTimeout(() => navigate('/'), 10000); } }, [autoSubmitted]);
 
+
+  const renderMedia = (url) => {
+    if (!url) return null;
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.webm') || lowerUrl.endsWith('.ogg') || lowerUrl.endsWith('.mkv')) {
+      return (
+        <div className="mb-8">
+          <video controls src={url} className="max-w-full h-auto rounded border" style={{ borderColor: '#dee2e6' }}>
+            Browser Anda tidak mendukung tag video.
+          </video>
+        </div>
+      );
+    }
+    if (lowerUrl.endsWith('.mp3') || lowerUrl.endsWith('.wav') || lowerUrl.endsWith('.ogg')) {
+      return (
+        <div className="mb-8">
+          <audio controls src={url} className="w-full">
+            Browser Anda tidak mendukung tag audio.
+          </audio>
+        </div>
+      );
+    }
+    return (
+      <div className="mb-8">
+        <img src={url} alt="Ilustrasi Soal" className="max-w-full h-auto rounded border" style={{ borderColor: '#dee2e6' }} />
+      </div>
+    );
+  };
+
   const handleStart = async () => {
     setLoading(true);
     try {
@@ -195,11 +224,7 @@ export default function TakeExam() {
                       </span>
                     </div>
                     <div className="text-sm text-[#333] mb-4" dangerouslySetInnerHTML={{ __html: ans.questions?.question_text || '' }}></div>
-                    {ans.questions?.image_url && (
-                      <div className="mb-4">
-                        <img src={ans.questions.image_url} alt="Soal" className="max-w-full h-auto rounded border" style={{ borderColor: '#dee2e6' }} />
-                      </div>
-                    )}
+                    {renderMedia(ans.questions?.image_url)}
                     <div className="text-sm space-y-2">
                       <p><strong>Jawaban Anda:</strong> {ans.answer ? `${ans.answer}. ${ans.questions[`option_${ans.answer.toLowerCase()}`] || ''}` : '-'}</p>
                       {!ans.is_correct && (
@@ -424,11 +449,7 @@ export default function TakeExam() {
             
             <div className="p-6 bg-white min-h-[400px]">
               <div className="text-[#333] text-lg leading-relaxed mb-8" dangerouslySetInnerHTML={{ __html: currentQ?.question_text || '' }}></div>
-              {currentQ?.image_url && (
-                <div className="mb-8">
-                  <img src={currentQ.image_url} alt="Ilustrasi Soal" className="max-w-full h-auto rounded border" style={{ borderColor: '#dee2e6' }} />
-                </div>
-              )}
+              {renderMedia(currentQ?.image_url)}
               
               <div className="space-y-4">
                 {['a','b','c','d','e'].map(letter => {
