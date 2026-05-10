@@ -3,6 +3,76 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAntiCheat, requestFullscreen, exitFullscreen } from '../hooks/useAntiCheat';
 
+function AudioRecorder({ onUpload, initialUrl }) {
+  const [recording, setRecording] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(initialUrl);
+  const [uploading, setUploading] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+
+  const start = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mediaRecorderRef.current.ondataavailable = (e) => chunksRef.current.push(e.data);
+      mediaRecorderRef.current.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        setAudioUrl(url);
+        upload(blob);
+      };
+      mediaRecorderRef.current.start();
+      setRecording(true);
+    } catch (err) { alert('Izin mikrofon ditolak atau tidak tersedia'); }
+  };
+
+  const stop = () => {
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      setRecording(false);
+    }
+  };
+
+  const upload = async (blob) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', blob, 'recording.webm');
+      const res = await fetch('https://c.termai.cc/api/upload?key=AIzaBj7z2z3xBjsk', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Gagal upload audio');
+      const data = await res.json();
+      if (data.path) {
+        onUpload(data.path);
+        setAudioUrl(data.path);
+      }
+    } catch (err) { alert(err.message); } finally { setUploading(false); }
+  };
+
+  return (
+    <div className="space-y-4 p-4 border rounded bg-[#f9f9f9]">
+      <div className="flex items-center gap-4">
+        {!recording ? (
+          <button type="button" onClick={start} className="moodle-btn moodle-btn-danger flex items-center gap-2">
+            🔴 Mulai Rekam
+          </button>
+        ) : (
+          <button type="button" onClick={stop} className="moodle-btn moodle-btn-secondary flex items-center gap-2 animate-pulse">
+            ⏹ Berhenti
+          </button>
+        )}
+        {uploading && <span className="text-xs font-bold text-blue-600">Uploading...</span>}
+      </div>
+      {audioUrl && (
+        <div className="mt-2">
+          <audio controls src={audioUrl} className="w-full h-10" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TakeExam() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -226,10 +296,21 @@ export default function TakeExam() {
                     <div className="text-sm text-[#333] mb-4" dangerouslySetInnerHTML={{ __html: ans.questions?.question_text || '' }}></div>
                     {renderMedia(ans.questions?.image_url)}
                     <div className="text-sm space-y-2">
-                      <p><strong>Jawaban Anda:</strong> {ans.answer ? `${ans.answer}. ${ans.questions[`option_${ans.answer.toLowerCase()}`] || ''}` : '-'}</p>
-                      {!ans.is_correct && (
-                        <p className="text-[#3c763d]"><strong>Jawaban Benar:</strong> {ans.questions.correct_answer}. {ans.questions[`option_${ans.questions.correct_answer?.toLowerCase()}`] || ''}</p>
-                      )}
+                      {ans.questions.tipe === 'mcq' ? (
+                        <>
+                          <p><strong>Jawaban Anda:</strong> {ans.answer ? `${ans.answer}. ${ans.questions[`option_${ans.answer.toLowerCase()}`] || ''}` : '-'}</p>
+                          {!ans.is_correct && (
+                            <p className="text-[#3c763d]"><strong>Jawaban Benar:</strong> {ans.questions.correct_answer}. {ans.questions[`option_${ans.questions.correct_answer?.toLowerCase()}`] || ''}</p>
+                          )}
+                        </>
+                      ) : ans.questions.tipe === 'essai' ? (
+                        <p><strong>Jawaban Anda:</strong> <br/> <span className="whitespace-pre-wrap">{ans.answer || '-'}</span></p>
+                      ) : ans.questions.tipe === 'audio' ? (
+                        <div>
+                          <strong>Jawaban Anda:</strong>
+                          {ans.answer ? <audio controls src={ans.answer} className="w-full h-8 mt-1" /> : '-'}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -451,25 +532,46 @@ export default function TakeExam() {
               <div className="text-[#333] text-lg leading-relaxed mb-8" dangerouslySetInnerHTML={{ __html: currentQ?.question_text || '' }}></div>
               {renderMedia(currentQ?.image_url)}
               
-              <div className="space-y-4">
-                {['a','b','c','d','e'].map(letter => {
-                  const optVal = currentQ?.[`option_${letter}`]; if (!optVal) return null;
-                  const val = letter.toUpperCase(); const isSelected = answers[currentQ?.id] === val;
-                  return (
-                    <label key={letter} className={`flex items-start gap-4 p-4 rounded border cursor-pointer transition-colors ${isSelected ? 'bg-[#e9f2f9] border-[#0f6cb6]' : 'bg-white border-[#dee2e6] hover:bg-[#f5f5f5]'}`}>
-                      <input 
-                        type="radio" 
-                        name={`question_${currentQ?.id}`} 
-                        value={val} 
-                        checked={isSelected}
-                        onChange={() => handleAnswer(currentQ.id, val)}
-                        className="mt-1.5 w-4 h-4"
-                      />
-                      <span className="text-base text-[#333] font-medium">{val}. {optVal}</span>
-                    </label>
-                  );
-                })}
-              </div>
+                {currentQ.tipe === 'mcq' ? (
+                  <div className="space-y-4">
+                    {['a','b','c','d','e'].map(letter => {
+                      const optVal = currentQ?.[`option_${letter}`]; if (!optVal) return null;
+                      const val = letter.toUpperCase(); const isSelected = answers[currentQ?.id] === val;
+                      return (
+                        <label key={letter} className={`flex items-start gap-4 p-4 rounded border cursor-pointer transition-colors ${isSelected ? 'bg-[#e9f2f9] border-[#0f6cb6]' : 'bg-white border-[#dee2e6] hover:bg-[#f5f5f5]'}`}>
+                          <input 
+                            type="radio" 
+                            name={`question_${currentQ?.id}`} 
+                            value={val} 
+                            checked={isSelected}
+                            onChange={() => handleAnswer(currentQ.id, val)}
+                            className="mt-1.5 w-4 h-4"
+                          />
+                          <span className="text-base text-[#333] font-medium">{val}. {optVal}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : currentQ.tipe === 'essai' ? (
+                  <div className="space-y-2">
+                    <label className="moodle-label">Jawaban Anda (Teks):</label>
+                    <textarea 
+                      rows="6" 
+                      className="moodle-input" 
+                      placeholder="Tuliskan jawaban lengkap Anda di sini..."
+                      value={answers[currentQ.id] || ''}
+                      onChange={(e) => handleAnswer(currentQ.id, e.target.value)}
+                    />
+                  </div>
+                ) : currentQ.tipe === 'audio' ? (
+                  <div className="space-y-2">
+                    <label className="moodle-label">Jawaban Anda (Rekaman Suara):</label>
+                    <AudioRecorder 
+                      initialUrl={answers[currentQ.id]} 
+                      onUpload={(url) => handleAnswer(currentQ.id, url)} 
+                    />
+                  </div>
+                ) : null}
             </div>
             
             <div className="px-6 py-4 border-t flex flex-wrap gap-4 items-center justify-between bg-[#f9f9f9]" style={{ borderColor: '#dee2e6' }}>

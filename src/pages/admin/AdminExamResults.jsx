@@ -9,6 +9,10 @@ export default function AdminExamResults() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState('');
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [sessionAnswers, setSessionAnswers] = useState([]);
+  const [loadingReview, setLoadingReview] = useState(false);
   const token = getToken();
 
   useEffect(() => { fetchData(); }, [id]);
@@ -23,6 +27,16 @@ export default function AdminExamResults() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `Hasil_${exam?.title||'export'}.${format==='excel'?'xlsx':'pdf'}`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     } catch (e) { alert(e.message); } finally { setExporting(''); }
+  };
+
+  const openReview = async (session) => {
+    setSelectedSession(session);
+    setLoadingReview(true);
+    setShowReviewModal(true);
+    try {
+      const res = await fetch(`/api/exams/session/${session.id}/answers`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) setSessionAnswers(await res.json());
+    } catch (e) { console.error(e); } finally { setLoadingReview(false); }
   };
 
   if (loading) return <div className="flex justify-center py-20"><div className="w-10 h-10 border-4 border-[#0f6cb6] border-t-transparent rounded-full animate-spin"></div></div>;
@@ -79,7 +93,7 @@ export default function AdminExamResults() {
           <table className="moodle-table">
             <thead>
               <tr>
-                {['No','Nama','Kelas','Skor','Persentase','Status','Durasi','Pelanggaran','Waktu Submit'].map(h=><th key={h}>{h}</th>)}
+                {['No','Nama','Kelas','Skor','Persentase','Status','Durasi','Pelanggaran','Waktu Submit', 'Aksi'].map(h=><th key={h} className={h==='Aksi'?'text-center':''}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -111,12 +125,67 @@ export default function AdminExamResults() {
                   <td className="text-xs text-[#6c757d]">
                     {r.finished_at?new Date(r.finished_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'}):'-'}
                   </td>
+                  <td className="text-center">
+                    <button onClick={()=>openReview(r)} className="moodle-btn moodle-btn-info text-xs py-1 px-2">🔍 Review</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      {showReviewModal && (
+        <div className="moodle-modal-overlay">
+          <div className="moodle-modal moodle-modal-lg">
+            <div className="moodle-modal-header">
+              <h2>Review Jawaban: {selectedSession?.users?.nama}</h2>
+              <button onClick={()=>setShowReviewModal(false)} className="text-[#666] hover:text-[#333]">✖</button>
+            </div>
+            <div className="moodle-modal-body max-h-[70vh] overflow-y-auto space-y-6 p-6">
+              {loadingReview ? (
+                <div className="flex justify-center py-10"><div className="w-8 h-8 border-4 border-[#0f6cb6] border-t-transparent rounded-full animate-spin"></div></div>
+              ) : sessionAnswers.length === 0 ? (
+                <p className="text-center text-[#6c757d]">Tidak ada data jawaban.</p>
+              ) : (
+                sessionAnswers.map((ans, idx) => (
+                  <div key={ans.id} className="p-4 border rounded bg-white" style={{ borderColor: ans.is_correct ? '#d6e9c6' : '#ebccd1' }}>
+                    <div className="flex justify-between mb-2">
+                      <span className="font-bold text-[#333]">Soal {idx + 1}</span>
+                      <span className={ans.is_correct ? 'text-[#3c763d] font-bold' : 'text-[#a94442] font-bold'}>
+                        {ans.questions?.tipe === 'mcq' ? (ans.is_correct ? '✅ Benar' : '❌ Salah') : '📝 Perlu Review Manual'} ({ans.score} poin)
+                      </span>
+                    </div>
+                    <div className="text-sm text-[#333] mb-3" dangerouslySetInnerHTML={{ __html: ans.questions?.question_text }}></div>
+                    
+                    <div className="bg-[#f9f9f9] p-3 rounded text-sm border border-[#eee]">
+                      {ans.questions?.tipe === 'mcq' ? (
+                        <>
+                          <p><strong>Jawaban Siswa:</strong> {ans.answer ? `${ans.answer}. ${ans.questions[`option_${ans.answer.toLowerCase()}`] || ''}` : '-'}</p>
+                          <p className="text-[#3c763d] mt-1"><strong>Kunci Jawaban:</strong> {ans.questions?.correct_answer}. {ans.questions[`option_${ans.questions?.correct_answer?.toLowerCase()}`] || ''}</p>
+                        </>
+                      ) : ans.questions?.tipe === 'essai' ? (
+                        <div>
+                          <strong>Jawaban Siswa (Essai):</strong>
+                          <div className="mt-1 p-2 bg-white border rounded whitespace-pre-wrap">{ans.answer || '-'}</div>
+                        </div>
+                      ) : ans.questions?.tipe === 'audio' ? (
+                        <div>
+                          <strong>Jawaban Siswa (Audio):</strong>
+                          <div className="mt-1">
+                            {ans.answer ? <audio controls src={ans.answer} className="w-full h-10" /> : <span className="text-red-500 italic">Tidak ada rekaman</span>}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="moodle-modal-footer">
+              <button onClick={()=>setShowReviewModal(false)} className="moodle-btn moodle-btn-secondary">Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

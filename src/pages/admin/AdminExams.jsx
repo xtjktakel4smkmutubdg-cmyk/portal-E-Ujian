@@ -107,7 +107,8 @@ export default function AdminExams() {
       option_a: q.option_a || '', option_b: q.option_b || '',
       option_c: q.option_c || '', option_d: q.option_d || '',
       option_e: q.option_e || '', correct_answer: q.correct_answer || 'A',
-      tipe: q.tipe || 'mcq', bobot: q.bobot || 1, image_url: q.image_url || ''
+      tipe: q.tipe || 'mcq', bobot: q.bobot || 1, image_url: q.image_url || '',
+      correct_answer: q.correct_answer || 'A'
     });
     setIsEditingQuestion(true);
     setEditQuestionId(q.id);
@@ -138,13 +139,14 @@ export default function AdminExams() {
     }
   };
 
-  const aiPromptTemplate = `Saya ingin kamu membuat 5 soal ujian pilihan ganda (A-E) untuk mata pelajaran [Tulis Pelajaran].
+  const aiPromptTemplate = `Saya ingin kamu membuat beberapa soal ujian (campuran pilihan ganda, essai, dan audio) untuk mata pelajaran [Tulis Pelajaran].
 Tolong hasilkan dalam format Array JSON yang persis sama dengan struktur berikut (jangan tambahkan teks lain selain JSON agar bisa langsung di-copy).
 
 Contoh Format:
 [
   {
-    "question_text": "Apa ibu kota negara Indonesia?",
+    "question_text": "Apa ibu kota Indonesia?",
+    "tipe": "mcq",
     "option_a": "Bandung",
     "option_b": "Jakarta",
     "option_c": "Surabaya",
@@ -152,6 +154,16 @@ Contoh Format:
     "option_e": "Semarang",
     "correct_answer": "B",
     "bobot": 1
+  },
+  {
+    "question_text": "Jelaskan proses fotosintesis!",
+    "tipe": "essai",
+    "bobot": 5
+  },
+  {
+    "question_text": "Sebutkan 5 sila Pancasila dengan suara yang jelas!",
+    "tipe": "audio",
+    "bobot": 10
   }
 ]`;
 
@@ -319,6 +331,15 @@ Contoh Format:
                 </h3>
                 <form onSubmit={saveQuestion} className="space-y-4">
                   <div>
+                    <label className="moodle-label">Tipe Soal *</label>
+                    <select className="moodle-input" value={qForm.tipe} onChange={e=>setQForm({...qForm,tipe:e.target.value})}>
+                      <option value="mcq">Pilihan Ganda (ABCDE)</option>
+                      <option value="essai">Essai (Jawaban Teks)</option>
+                      <option value="audio">Perekam Audio (Jawaban Suara)</option>
+                    </select>
+                  </div>
+
+                  <div>
                     <label className="moodle-label">Pertanyaan *</label>
                     <textarea required rows="3" className="moodle-input" value={qForm.question_text} onChange={e=>setQForm({...qForm,question_text:e.target.value})} placeholder="Teks soal..."/>
                   </div>
@@ -341,19 +362,24 @@ Contoh Format:
                   </div>
 
                   
-                  {['a','b','c','d','e'].map(l=>(
-                    <div key={l}>
-                      <label className="moodle-label text-xs">Opsi {l.toUpperCase()} {l!=='e'&&'*'}</label>
-                      <input className="moodle-input text-sm py-1.5" value={qForm[`option_${l}`]} onChange={e=>setQForm({...qForm,[`option_${l}`]:e.target.value})} required={l!=='e'}/>
-                    </div>
-                  ))}
+                  {qForm.tipe === 'mcq' && (
+                    <>
+                      {['a','b','c','d','e'].map(l=>(
+                        <div key={l}>
+                          <label className="moodle-label text-xs">Opsi {l.toUpperCase()} {l!=='e'&&'*'}</label>
+                          <input className="moodle-input text-sm py-1.5" value={qForm[`option_${l}`]} onChange={e=>setQForm({...qForm,[`option_${l}`]:e.target.value})} required={qForm.tipe === 'mcq' && l!=='e'}/>
+                        </div>
+                      ))}
 
-                  <div>
-                    <label className="moodle-label">Jawaban Benar</label>
-                    <select className="moodle-input" value={qForm.correct_answer} onChange={e=>setQForm({...qForm,correct_answer:e.target.value})}>
-                      {['A','B','C','D','E'].map(v=><option key={v} value={v}>Opsi {v}</option>)}
-                    </select>
-                  </div>
+                      <div>
+                        <label className="moodle-label">Jawaban Benar</label>
+                        <select className="moodle-input" value={qForm.correct_answer} onChange={e=>setQForm({...qForm,correct_answer:e.target.value})}>
+                          {['A','B','C','D','E'].map(v=><option key={v} value={v}>Opsi {v}</option>)}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                  
                   <div>
                     <label className="moodle-label">Bobot Nilai</label>
                     <input type="number" min="1" className="moodle-input" value={qForm.bobot} onChange={e=>setQForm({...qForm,bobot:Number(e.target.value)})}/>
@@ -392,14 +418,22 @@ Contoh Format:
                             <button onClick={()=>deleteQuestion(q.id)} className="text-[#d9534f] hover:underline text-xs">Hapus</button>
                           </div>
                         </div>
-                        <ul className="text-sm space-y-1 ml-8">
-                          {['a','b','c','d','e'].map(l => q[`option_${l}`] && (
-                            <li key={l} className={q.correct_answer === l.toUpperCase() ? "font-bold text-[#5cb85c]" : "text-[#333]"}>
-                              {l.toUpperCase()}. {q[`option_${l}`]}
-                              {q.correct_answer === l.toUpperCase() && " (Benar)"}
-                            </li>
-                          ))}
-                        </ul>
+                        <div className="ml-8">
+                          {q.tipe === 'mcq' ? (
+                            <ul className="text-sm space-y-1">
+                              {['a','b','c','d','e'].map(l => q[`option_${l}`] && (
+                                <li key={l} className={q.correct_answer === l.toUpperCase() ? "font-bold text-[#5cb85c]" : "text-[#333]"}>
+                                  {l.toUpperCase()}. {q[`option_${l}`]}
+                                  {q.correct_answer === l.toUpperCase() && " (Benar)"}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="text-xs font-bold text-[#6c757d] uppercase italic">
+                              Tipe: {q.tipe === 'essai' ? '📝 Essai' : '🎤 Audio'}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
