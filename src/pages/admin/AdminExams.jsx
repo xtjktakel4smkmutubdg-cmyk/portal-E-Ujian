@@ -216,6 +216,7 @@ Contoh Format:
                     <td>
                       <div className="flex gap-2">
                         <button onClick={()=>openQuestions(exam.id)} className="moodle-btn moodle-btn-success text-xs py-1 px-2">📝 Soal</button>
+                        <Link to={`/take-exam/${exam.id}?preview=true`} className="moodle-btn moodle-btn-info text-xs py-1 px-2">👁️ Pratinjau</Link>
                         <Link to={`/admin/exams/${exam.id}/results`} className="moodle-btn moodle-btn-primary text-xs py-1 px-2">📈 Hasil</Link>
                         <button onClick={()=>openEdit(exam)} className="moodle-btn moodle-btn-secondary text-xs py-1 px-2">✏️ Edit</button>
                         <button onClick={()=>handleDelete(exam.id)} className="moodle-btn moodle-btn-danger text-xs py-1 px-2">🗑️ Hapus</button>

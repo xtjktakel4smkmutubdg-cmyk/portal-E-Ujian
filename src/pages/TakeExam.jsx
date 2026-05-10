@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAntiCheat, requestFullscreen, exitFullscreen } from '../hooks/useAntiCheat';
 
-function AudioRecorder({ onUpload, initialUrl }) {
+function AudioRecorder({ onUpload, initialUrl, onStartRecording, onStopRecording }) {
   const [recording, setRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState(initialUrl);
   const [uploading, setUploading] = useState(false);
@@ -12,19 +12,26 @@ function AudioRecorder({ onUpload, initialUrl }) {
 
   const start = async () => {
     try {
+      if (onStartRecording) onStartRecording();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       chunksRef.current = [];
       mediaRecorderRef.current.ondataavailable = (e) => chunksRef.current.push(e.data);
       mediaRecorderRef.current.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        // Create a File object which is more standard for some APIs
+        const file = new File([blob], `recording_${Date.now()}.webm`, { type: 'audio/webm' });
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
-        upload(blob);
+        upload(file);
+        if (onStopRecording) onStopRecording();
       };
       mediaRecorderRef.current.start();
       setRecording(true);
-    } catch (err) { alert('Izin mikrofon ditolak atau tidak tersedia'); }
+    } catch (err) { 
+      alert('Izin mikrofon ditolak atau tidak tersedia: ' + err.message); 
+      if (onStopRecording) onStopRecording();
+    }
   };
 
   const stop = () => {
@@ -35,19 +42,33 @@ function AudioRecorder({ onUpload, initialUrl }) {
     }
   };
 
-  const upload = async (blob) => {
+  const upload = async (file) => {
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', blob, 'recording.webm');
-      const res = await fetch('https://c.termai.cc/api/upload?key=AIzaBj7z2z3xBjsk', { method: 'POST', body: formData });
-      if (!res.ok) throw new Error('Gagal upload audio');
+      // Match the admin music upload mechanism exactly
+      formData.append('file', file);
+      
+      const res = await fetch('https://c.termai.cc/api/upload?key=AIzaBj7z2z3xBjsk', { 
+        method: 'POST', 
+        body: formData 
+      });
+      
+      if (!res.ok) throw new Error('Gagal upload audio ke server storage');
       const data = await res.json();
-      if (data.path) {
+      
+      if (data.status && data.path) {
         onUpload(data.path);
         setAudioUrl(data.path);
+      } else {
+        throw new Error('Format respon upload tidak valid');
       }
-    } catch (err) { alert(err.message); } finally { setUploading(false); }
+    } catch (err) { 
+      console.error('Upload error:', err);
+      alert('Gagal upload: ' + err.message); 
+    } finally { 
+      setUploading(false); 
+    }
   };
 
   return (
@@ -75,6 +96,8 @@ function AudioRecorder({ onUpload, initialUrl }) {
 
 export default function TakeExam() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const isPreview = searchParams.get('preview') === 'true';
   const navigate = useNavigate();
   const { user, getToken } = useAuth();
   const [exam, setExam] = useState(null);
@@ -97,7 +120,8 @@ export default function TakeExam() {
   const timerRef = useRef(null);
   const [startSfxUrl, setStartSfxUrl] = useState(null);
   const token = getToken();
-  const { violationCount, showWarning, warningMessage, autoSubmitted, dismissWarning, pauseAntiCheat, resumeAntiCheat } = useAntiCheat(sessionId, token, phase === 'exam');
+  const [micPermission, setMicPermission] = useState('unknown'); // 'unknown', 'granted', 'denied'
+  const { violationCount, showWarning, warningMessage, autoSubmitted, dismissWarning, pauseAntiCheat, resumeAntiCheat } = useAntiCheat(sessionId, token, phase === 'exam' && !isPreview);
 
   useEffect(() => {
     const fetchExam = async () => {
@@ -177,6 +201,23 @@ export default function TakeExam() {
   const handleStart = async () => {
     setLoading(true);
     try {
+      if (isPreview) {
+        // Preview mode: Skip session creation, fetch questions directly
+        const qRes = await fetch(`/api/exams/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!qRes.ok) throw new Error('Gagal memuat soal pratinjau');
+        const qData = await qRes.json();
+        
+        setQuestions(qData.questions || []);
+        setAnswers({});
+        setRemainingSeconds(qData.durasi * 60);
+        setExamInfo(qData);
+        setCurrentIdx(0);
+        setPhase('exam');
+        requestFullscreen();
+        setLoading(false);
+        return;
+      }
+
       const startRes = await fetch('/api/sessions/start', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ exam_id: id }) });
       if (!startRes.ok) { const d = await startRes.json(); throw new Error(d.error); }
       const { session } = await startRes.json();
@@ -194,12 +235,27 @@ export default function TakeExam() {
     } catch (err) { setError(err.message); } finally { setLoading(false); }
   };
 
+  const handleCheckMic = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      setMicPermission('granted');
+      alert('Izin mikrofon berhasil diberikan!');
+    } catch (err) {
+      setMicPermission('denied');
+      alert('Gagal mendapatkan izin mikrofon. Pastikan Anda memberikan izin untuk merekam suara.');
+    }
+  };
+
   const saveAnswer = useCallback(async (qId, ans) => {
     if (!sessionId) return;
     try { await fetch(`/api/sessions/${sessionId}/answer`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ question_id: qId, answer: ans }) }); } catch (err) { console.error(err); }
   }, [sessionId, token]);
 
-  const handleAnswer = (qId, val) => { setAnswers(prev => ({ ...prev, [qId]: val })); saveAnswer(qId, val); };
+  const handleAnswer = (qId, val) => { 
+    setAnswers(prev => ({ ...prev, [qId]: val })); 
+    if (!isPreview) saveAnswer(qId, val); 
+  };
 
   const handleSubmit = async (isAuto = false) => {
     pauseAntiCheat();
@@ -404,13 +460,24 @@ export default function TakeExam() {
               </div>
             )}
             
+            <div className="moodle-alert moodle-alert-info">
+              <h3 className="font-bold mb-2">🎤 Persiapan Perangkat</h3>
+              <p className="text-sm mb-4">Ujian ini mungkin membutuhkan akses mikrofon untuk soal rekaman suara. Mohon izinkan akses mikrofon sebelum memulai agar tidak mengganggu jalannya ujian.</p>
+              <button 
+                onClick={handleCheckMic} 
+                className={`moodle-btn ${micPermission === 'granted' ? 'moodle-btn-success' : 'moodle-btn-secondary'} w-full flex items-center justify-center gap-2`}
+              >
+                {micPermission === 'granted' ? '✅ Izin Mikrofon OK' : '🎤 Cek/Izinkan Mikrofon'}
+              </button>
+            </div>
+
             <div className="flex gap-3 pt-2">
               <button onClick={() => navigate('/')} className="moodle-btn moodle-btn-secondary flex-1 text-center">
                 Kembali ke Dashboard
               </button>
               {canStart && (
                 <button onClick={handleStart} className="moodle-btn moodle-btn-primary flex-1 text-center">
-                  Mulai Ujian Sekarang
+                  {isPreview ? 'Mulai Pratinjau' : 'Mulai Ujian Sekarang'}
                 </button>
               )}
             </div>
@@ -495,9 +562,12 @@ export default function TakeExam() {
       )}
 
       {/* Top bar */}
-      <div className="sticky top-0 z-50 bg-[#0f6cb6] text-white border-b border-[#0a528c] print:hidden">
+      <div className={`sticky top-0 z-50 text-white border-b print:hidden ${isPreview ? 'bg-[#f0ad4e] border-[#eea236]' : 'bg-[#0f6cb6] border-[#0a528c]'}`}>
         <div className="w-full px-4 flex items-center justify-between h-14">
-          <span className="font-bold text-sm truncate">{examInfo?.title}</span>
+          <span className="font-bold text-sm truncate">
+            {isPreview && <span className="bg-white text-[#f0ad4e] px-2 py-0.5 rounded mr-2">PRATINJAU</span>}
+            {examInfo?.title}
+          </span>
           <div className="flex items-center gap-4">
             {violationCount > 0 && (
               <span className="bg-[#d9534f] px-2 py-1 rounded text-xs font-bold">
@@ -569,6 +639,12 @@ export default function TakeExam() {
                     <AudioRecorder 
                       initialUrl={answers[currentQ.id]} 
                       onUpload={(url) => handleAnswer(currentQ.id, url)} 
+                      onStartRecording={() => {
+                        pauseAntiCheat();
+                        // Resume after 3 seconds to allow browser to settle
+                        setTimeout(resumeAntiCheat, 3000);
+                      }}
+                      onStopRecording={resumeAntiCheat}
                     />
                   </div>
                 ) : null}

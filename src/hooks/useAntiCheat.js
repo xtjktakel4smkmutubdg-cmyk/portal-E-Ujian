@@ -17,11 +17,20 @@ export function useAntiCheat(sessionId, token, isActive = false) {
     isPausedRef.current = true;
   }, []);
   const resumeAntiCheat = useCallback(() => {
-    isPausedRef.current = false;
+    // Add a small grace period after resuming to allow browser state to settle
+    setTimeout(() => {
+      isPausedRef.current = false;
+    }, 1000);
   }, []);
 
   const recordViolation = useCallback(async (type, description) => {
     if (!sessionId || !token || !isActive || isPausedRef.current) return;
+
+    // If it's a fullscreen exit, give a tiny grace period to re-enter
+    if (type === 'fullscreen_exit') {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+    }
 
     try {
       const res = await fetch(`/api/sessions/${sessionId}/violation`, {
