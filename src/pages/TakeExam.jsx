@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "../lib/supabase";
+import TypingAnimation from "../components/TypingAnimation";
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAntiCheat, requestFullscreen, exitFullscreen } from '../hooks/useAntiCheat';
@@ -45,21 +47,21 @@ function AudioRecorder({ onUpload, initialUrl, onStartRecording, onStopRecording
   const upload = async (file) => {
     setUploading(true);
     try {
-      const formData = new FormData();
-      // Match the admin music upload mechanism exactly
-      formData.append('file', file);
-      
-      const res = await fetch('https://c.termai.cc/api/upload?key=AIzaBj7z2z3xBjsk', { 
-        method: 'POST', 
-        body: formData 
-      });
-      
-      if (!res.ok) throw new Error('Gagal upload audio ke server storage');
-      const data = await res.json();
-      
-      if (data.status && data.path) {
-        onUpload(data.path);
-        setAudioUrl(data.path);
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.webm`;
+      const { data, error } = await supabase.storage
+        .from('audio-records')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('audio-records')
+        .getPublicUrl(fileName);
+
+      if (publicUrl) {
+        onUpload(publicUrl);
+        // Do not update audioUrl state to avoid showing media player and trigger fullscreen exit on some browsers.
+        setAudioUrl(publicUrl);
       } else {
         throw new Error('Format respon upload tidak valid');
       }
@@ -85,9 +87,9 @@ function AudioRecorder({ onUpload, initialUrl, onStartRecording, onStopRecording
         )}
         {uploading && <span className="text-xs font-bold text-blue-600">Uploading...</span>}
       </div>
-      {audioUrl && (
-        <div className="mt-2">
-          <audio controls src={audioUrl} className="w-full h-10" />
+      {audioUrl && !uploading && (
+        <div className="mt-2 text-sm font-bold text-green-600">
+          ✅ Audio berhasil direkam dan disimpan.
         </div>
       )}
     </div>
@@ -293,7 +295,11 @@ export default function TakeExam() {
         <div className="text-5xl mb-4">⚠️</div>
         <h2 className="text-xl font-bold text-[#d9534f] mb-2">Gagal Memuat Ujian</h2>
         <p className="text-[#6c757d] mb-6 text-sm">{error}</p>
-        <button onClick={() => navigate('/')} className="moodle-btn moodle-btn-primary">Kembali ke Dashboard</button>
+        {isPreview ? (
+          <button onClick={() => navigate('/admin/exams')} className="moodle-btn moodle-btn-primary">Kembali ke Admin Dashboard</button>
+        ) : (
+          <button onClick={() => navigate('/')} className="moodle-btn moodle-btn-primary">Kembali ke Dashboard</button>
+        )}
       </div>
     </div>
   );
@@ -380,9 +386,11 @@ export default function TakeExam() {
                 📥 Download PDF Review
               </button>
             )}
-            <button onClick={() => navigate('/')} className="moodle-btn moodle-btn-primary flex-1">
-              Kembali ke Dashboard
-            </button>
+            {isPreview ? (
+              <button onClick={() => navigate('/admin/exams')} className="moodle-btn moodle-btn-primary flex-1">Kembali ke Admin Dashboard</button>
+            ) : (
+              <button onClick={() => navigate('/')} className="moodle-btn moodle-btn-primary flex-1">Kembali ke Dashboard</button>
+            )}
           </div>
         </div>
       </div>
@@ -472,9 +480,11 @@ export default function TakeExam() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button onClick={() => navigate('/')} className="moodle-btn moodle-btn-secondary flex-1 text-center">
-                Kembali ke Dashboard
-              </button>
+              {isPreview ? (
+              <button onClick={() => navigate('/admin/exams')} className="moodle-btn moodle-btn-secondary flex-1 text-center">Kembali ke Admin Dashboard</button>
+            ) : (
+              <button onClick={() => navigate('/')} className="moodle-btn moodle-btn-secondary flex-1 text-center">Kembali ke Dashboard</button>
+            )}
               {canStart && (
                 <button onClick={handleStart} className="moodle-btn moodle-btn-primary flex-1 text-center">
                   {isPreview ? 'Mulai Pratinjau' : 'Mulai Ujian Sekarang'}
@@ -495,7 +505,11 @@ export default function TakeExam() {
           <div className="text-5xl mb-4">⚠️</div>
           <h2 className="text-xl font-bold text-[#d9534f] mb-2">Soal Belum Tersedia</h2>
           <p className="text-[#6c757d] mb-6 text-sm">Belum ada soal untuk ujian ini. Silakan hubungi administrator.</p>
+          {isPreview ? (
+          <button onClick={() => navigate('/admin/exams')} className="moodle-btn moodle-btn-primary">Kembali ke Admin Dashboard</button>
+        ) : (
           <button onClick={() => navigate('/')} className="moodle-btn moodle-btn-primary">Kembali ke Dashboard</button>
+        )}
         </div>
       </div>
     );
@@ -599,7 +613,9 @@ export default function TakeExam() {
             </div>
             
             <div className="p-6 bg-white min-h-[400px]">
-              <div className="text-[#333] text-lg leading-relaxed mb-8" dangerouslySetInnerHTML={{ __html: currentQ?.question_text || '' }}></div>
+              <div className="text-[#333] text-lg leading-relaxed mb-8">
+                <TypingAnimation text={currentQ?.question_text || ''} speed={10} key={currentQ?.id} />
+              </div>
               {renderMedia(currentQ?.image_url)}
               
                 {currentQ.tipe === 'mcq' ? (
