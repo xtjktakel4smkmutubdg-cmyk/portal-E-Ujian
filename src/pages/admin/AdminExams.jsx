@@ -36,6 +36,23 @@ export default function AdminExams() {
   
   const handleSaveExam = async (e) => { e.preventDefault(); const url=editExam?`/api/exams/${editExam.id}`:'/api/exams'; const method=editExam?'PUT':'POST'; const t_m=new Date(form.tanggal_mulai+'+07:00').toISOString(); const t_s=new Date(form.tanggal_selesai+'+07:00').toISOString(); try { const r=await fetch(url,{method,headers,body:JSON.stringify({...form,tanggal_mulai:t_m,tanggal_selesai:t_s})}); if(!r.ok) throw new Error('Gagal menyimpan'); await fetchExams(); setShowModal(false); } catch(e){alert(e.message);} };
   const handleDelete = async (id) => { if(!confirm('Hapus ujian ini?')) return; try { await fetch(`/api/exams/${id}`,{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}}); await fetchExams(); } catch(e){alert(e.message);} };
+
+  const handleDuplicate = async (id) => {
+    if(!confirm('Duplikasi ujian ini beserta soalnya?')) return;
+    try {
+      const res = await fetch(`/api/exams/${id}/duplicate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if(!res.ok) throw new Error('Gagal duplikasi ujian');
+      await fetchExams();
+      alert('Ujian berhasil diduplikasi. Status default: Tidak Aktif.');
+    } catch(e) {
+      alert(e.message);
+    }
+  };
   
   const openQuestions = async (examId) => { 
     setSelectedExamId(examId); 
@@ -217,6 +234,7 @@ Contoh Format:
                         <Link to={`/take-exam/${exam.id}?preview=true`} className="moodle-btn moodle-btn-info text-xs py-1 px-2">👁️ Pratinjau</Link>
                         <Link to={`/admin/exams/${exam.id}/results`} className="moodle-btn moodle-btn-primary text-xs py-1 px-2">📈 Hasil</Link>
                         <button onClick={()=>openEdit(exam)} className="moodle-btn moodle-btn-secondary text-xs py-1 px-2">✏️ Edit</button>
+                        <button onClick={()=>handleDuplicate(exam.id)} className="moodle-btn moodle-btn-success text-xs py-1 px-2">📋 Duplikat</button>
                         <button onClick={()=>handleDelete(exam.id)} className="moodle-btn moodle-btn-danger text-xs py-1 px-2">🗑️ Hapus</button>
                       </div>
                     </td>

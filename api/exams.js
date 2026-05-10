@@ -254,4 +254,69 @@ router.get('/session/:sessionId/answers', authenticateToken, requireAdmin, async
   }
 });
 
+
+// Duplicate an exam along with its questions
+router.post('/:id/duplicate', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Fetch the original exam
+    const { data: originalExam, error: fetchError } = await supabase
+      .from('exams')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !originalExam) {
+      return res.status(404).json({ error: 'Ujian tidak ditemukan' });
+    }
+
+    // Prepare duplicate exam data
+    const duplicateExamData = { ...originalExam };
+    delete duplicateExamData.id;
+    delete duplicateExamData.created_at;
+    duplicateExamData.title = duplicateExamData.title + ' (Copy)';
+    duplicateExamData.is_active = false; // Duplicated exams are inactive by default
+
+    // Insert duplicated exam
+    const { data: newExam, error: insertExamError } = await supabase
+      .from('exams')
+      .insert([duplicateExamData])
+      .select()
+      .single();
+
+    if (insertExamError) throw insertExamError;
+
+    // Fetch original questions
+    const { data: originalQuestions, error: fetchQError } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('exam_id', id);
+
+    if (fetchQError) throw fetchQError;
+
+    // Duplicate questions if any
+    if (originalQuestions && originalQuestions.length > 0) {
+      const duplicatedQuestions = originalQuestions.map(q => {
+        const { id, created_at, ...qData } = q;
+        return {
+          ...qData,
+          exam_id: newExam.id
+        };
+      });
+
+      const { error: insertQError } = await supabase
+        .from('questions')
+        .insert(duplicatedQuestions);
+
+      if (insertQError) throw insertQError;
+    }
+
+    res.status(201).json(newExam);
+  } catch (error) {
+    console.error('Error duplicating exam:', error);
+    res.status(500).json({ error: 'Gagal menduplikasi ujian' });
+  }
+});
+
 export default router;
