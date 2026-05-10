@@ -133,6 +133,7 @@ export default function AdminExamResults() {
             </tbody>
           </table>
         </div>
+      </div>
       {showReviewModal && (
         <div className="moodle-modal-overlay">
           <div className="moodle-modal moodle-modal-lg">
