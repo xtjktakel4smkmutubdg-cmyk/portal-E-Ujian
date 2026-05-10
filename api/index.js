@@ -8,6 +8,7 @@ import examsRoutes from './exams.js';
 import sessionsRoutes from './sessions.js';
 import exportRoutes from './export.js';
 import musicRoutes from './music.js';
+import settingsRoutes from './settings.js';
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/exams', examsRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Portal E-Ujian API v2.0 is running', timestamp: new Date().toISOString() });

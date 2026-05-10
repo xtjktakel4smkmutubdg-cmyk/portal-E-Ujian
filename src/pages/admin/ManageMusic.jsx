@@ -10,10 +10,32 @@ export default function ManageMusic() {
   const [activeTab, setActiveTab] = useState('tracks'); // 'tracks' or 'requests'
   const [newTrackTitle, setNewTrackTitle] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  
+  // Global Settings States
+  const [settings, setSettings] = useState({
+    dashboard_music_url: '',
+    exam_start_sfx_url: ''
+  });
+  const [updatingSettings, setUpdatingSettings] = useState(false);
+  const [uploadingGlobal, setUploadingGlobal] = useState({ dashboard: false, sfx: false });
 
   useEffect(() => {
     fetchData();
+    if (activeTab === 'settings') {
+      fetchSettings();
+    }
   }, [activeTab]);
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('/api/settings', {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      if (res.ok) setSettings(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch settings', err);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -158,6 +180,12 @@ export default function ManageMusic() {
         >
           Request Siswa
         </button>
+        <button
+          className={`py-2 px-4 font-semibold text-sm ${activeTab === 'settings' ? 'border-b-2 border-[#0f6cb6] text-[#0f6cb6]' : 'text-gray-500 hover:text-gray-700'}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          Pengaturan Global
+        </button>
       </div>
 
       {activeTab === 'tracks' && (
@@ -275,6 +303,175 @@ export default function ManageMusic() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {activeTab === 'settings' && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded shadow-sm border">
+            <h2 className="text-lg font-bold mb-4">🎵 Pengaturan Musik & SFX Global</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              
+              {/* Dashboard Music Section */}
+              <div className="space-y-4 p-4 bg-gray-50 rounded border">
+                <div>
+                  <h3 className="font-bold text-[#0f6cb6]">Musik Dashboard Otomatis</h3>
+                  <p className="text-xs text-gray-500 mb-4">Musik ini akan diputar otomatis saat siswa berada di Dashboard.</p>
+                </div>
+                
+                {settings.dashboard_music_url && (
+                  <div className="mb-4">
+                    <p className="text-xs font-bold mb-1">Preview Saat Ini:</p>
+                    <audio controls src={settings.dashboard_music_url} className="h-8 w-full"></audio>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Ganti Musik Dashboard (MP3)</label>
+                  <input 
+                    type="file" 
+                    accept="audio/mpeg, audio/mp3"
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      
+                      setUploadingGlobal(prev => ({ ...prev, dashboard: true }));
+                      try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const uploadRes = await fetch('https://c.termai.cc/api/upload?key=AIzaBj7z2z3xBjsk', {
+                          method: 'POST',
+                          body: formData
+                        });
+                        if (!uploadRes.ok) throw new Error('Upload gagal');
+                        const uploadData = await uploadRes.json();
+                        
+                        await fetch('/api/settings/update', {
+                          method: 'POST',
+                          headers: { 
+                            'Authorization': `Bearer ${getToken()}`,
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({ settings: { dashboard_music_url: uploadData.path } })
+                        });
+                        
+                        setSettings(prev => ({ ...prev, dashboard_music_url: uploadData.path }));
+                        alert('Musik dashboard berhasil diperbarui!');
+                      } catch (err) {
+                        alert('Gagal mengupload musik dashboard');
+                      } finally {
+                        setUploadingGlobal(prev => ({ ...prev, dashboard: false }));
+                      }
+                    }}
+                    className="w-full text-xs"
+                    disabled={uploadingGlobal.dashboard}
+                  />
+                  {uploadingGlobal.dashboard && <p className="text-xs text-blue-600 animate-pulse">Mengupload...</p>}
+                </div>
+
+                <button 
+                  onClick={async () => {
+                    if (!window.confirm('Hapus musik dashboard?')) return;
+                    try {
+                      await fetch('/api/settings/update', {
+                        method: 'POST',
+                        headers: { 
+                          'Authorization': `Bearer ${getToken()}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ settings: { dashboard_music_url: null } })
+                      });
+                      setSettings(prev => ({ ...prev, dashboard_music_url: null }));
+                      alert('Musik dashboard dihapus');
+                    } catch (err) { alert('Gagal menghapus'); }
+                  }}
+                  className="text-xs text-red-600 hover:underline font-bold"
+                >
+                  Hapus Musik Dashboard
+                </button>
+              </div>
+
+              {/* SFX Section */}
+              <div className="space-y-4 p-4 bg-gray-50 rounded border">
+                <div>
+                  <h3 className="font-bold text-[#0f6cb6]">SFX Mulai Ujian</h3>
+                  <p className="text-xs text-gray-500 mb-4">Suara efek yang diputar sesaat sebelum ujian dimulai.</p>
+                </div>
+
+                {settings.exam_start_sfx_url && (
+                  <div className="mb-4">
+                    <p className="text-xs font-bold mb-1">Preview Saat Ini:</p>
+                    <audio controls src={settings.exam_start_sfx_url} className="h-8 w-full"></audio>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Ganti SFX (MP3/WAV)</label>
+                  <input 
+                    type="file" 
+                    accept="audio/*"
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      
+                      setUploadingGlobal(prev => ({ ...prev, sfx: true }));
+                      try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const uploadRes = await fetch('https://c.termai.cc/api/upload?key=AIzaBj7z2z3xBjsk', {
+                          method: 'POST',
+                          body: formData
+                        });
+                        if (!uploadRes.ok) throw new Error('Upload gagal');
+                        const uploadData = await uploadRes.json();
+                        
+                        await fetch('/api/settings/update', {
+                          method: 'POST',
+                          headers: { 
+                            'Authorization': `Bearer ${getToken()}`,
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({ settings: { exam_start_sfx_url: uploadData.path } })
+                        });
+                        
+                        setSettings(prev => ({ ...prev, exam_start_sfx_url: uploadData.path }));
+                        alert('SFX berhasil diperbarui!');
+                      } catch (err) {
+                        alert('Gagal mengupload SFX');
+                      } finally {
+                        setUploadingGlobal(prev => ({ ...prev, sfx: false }));
+                      }
+                    }}
+                    className="w-full text-xs"
+                    disabled={uploadingGlobal.sfx}
+                  />
+                  {uploadingGlobal.sfx && <p className="text-xs text-blue-600 animate-pulse">Mengupload...</p>}
+                </div>
+
+                <button 
+                  onClick={async () => {
+                    if (!window.confirm('Hapus SFX?')) return;
+                    try {
+                      await fetch('/api/settings/update', {
+                        method: 'POST',
+                        headers: { 
+                          'Authorization': `Bearer ${getToken()}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ settings: { exam_start_sfx_url: null } })
+                      });
+                      setSettings(prev => ({ ...prev, exam_start_sfx_url: null }));
+                      alert('SFX dihapus');
+                    } catch (err) { alert('Gagal menghapus'); }
+                  }}
+                  className="text-xs text-red-600 hover:underline font-bold"
+                >
+                  Hapus SFX
+                </button>
+              </div>
+
+            </div>
+          </div>
         </div>
       )}
     </div>

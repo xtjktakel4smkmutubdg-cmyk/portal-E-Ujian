@@ -23,7 +23,9 @@ export default function TakeExam() {
   const [tracks, setTracks] = useState([]);
   const [currentTrackIdx, setCurrentTrackIdx] = useState(0);
   const audioRef = useRef(null);
+  const sfxRef = useRef(null);
   const timerRef = useRef(null);
+  const [startSfxUrl, setStartSfxUrl] = useState(null);
   const token = getToken();
   const { violationCount, showWarning, warningMessage, autoSubmitted, dismissWarning, pauseAntiCheat, resumeAntiCheat } = useAntiCheat(sessionId, token, phase === 'exam');
 
@@ -41,6 +43,15 @@ export default function TakeExam() {
         if (musicRes.ok) {
           const trackData = await musicRes.json();
           setTracks(trackData);
+        }
+
+        // Fetch settings for SFX
+        const settingsRes = await fetch('/api/settings', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (settingsRes.ok) {
+          const settings = await settingsRes.json();
+          if (settings.exam_start_sfx_url) {
+            setStartSfxUrl(settings.exam_start_sfx_url);
+          }
         }
       } catch (err) { setError(err.message); } finally { setLoading(false); }
     };
@@ -71,6 +82,12 @@ export default function TakeExam() {
       if (!startRes.ok) { const d = await startRes.json(); throw new Error(d.error); }
       const { session } = await startRes.json();
       setSessionId(session.id);
+      
+      // Play SFX if available
+      if (sfxRef.current) {
+        sfxRef.current.play().catch(e => console.log('SFX play failed:', e));
+      }
+
       const qRes = await fetch(`/api/sessions/${session.id}/questions`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!qRes.ok) { const d = await qRes.json(); throw new Error(d.error); }
       const qData = await qRes.json();
@@ -349,6 +366,9 @@ export default function TakeExam() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f5f5f5]">
+      {startSfxUrl && (
+        <audio ref={sfxRef} src={startSfxUrl} style={{ display: 'none' }} />
+      )}
       {showWarning && (
         <div className="moodle-modal-overlay z-[100]">
           <div className="moodle-modal">

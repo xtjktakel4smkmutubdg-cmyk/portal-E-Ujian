@@ -9,10 +9,28 @@ export default function Dashboard() {
   const [showMusicModal, setShowMusicModal] = useState(false);
   const [songTitle, setSongTitle] = useState('');
   const [submittingMusic, setSubmittingMusic] = useState(false);
+  const [dashboardMusicUrl, setDashboardMusicUrl] = useState(null);
 
   useEffect(() => {
     fetchExams();
+    fetchDashboardMusic();
   }, []);
+
+  const fetchDashboardMusic = async () => {
+    try {
+      const res = await fetch('/api/settings', {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      if (res.ok) {
+        const settings = await res.json();
+        if (settings.dashboard_music_url) {
+          setDashboardMusicUrl(settings.dashboard_music_url);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch dashboard music', err);
+    }
+  };
 
   const fetchExams = async () => {
     try {
@@ -101,6 +119,19 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
+      {dashboardMusicUrl && (
+        <audio 
+          src={dashboardMusicUrl} 
+          autoPlay 
+          loop 
+          style={{ display: 'none' }} 
+          onCanPlay={(e) => {
+            e.target.play().catch(err => {
+              console.log("Autoplay blocked, waiting for interaction");
+            });
+          }}
+        />
+      )}
       {/* Top Bar */}
       <nav className="sticky top-0 z-40 bg-[#0f6cb6] border-b border-[#0a528c]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-[50px]">
